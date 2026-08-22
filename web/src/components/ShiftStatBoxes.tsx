@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 export interface ShiftMetric {
   label: string
   value: number | string
+  onClick?: () => void
 }
 
 interface Props {
@@ -42,6 +43,14 @@ export function ShiftStatBoxes({ metricsForShift, rateForShift, loading, classNa
                 <div key={m.label}>
                   {loading ? (
                     <Skeleton className="h-7 w-10" />
+                  ) : m.onClick ? (
+                    <button
+                      type="button"
+                      onClick={m.onClick}
+                      className="text-xl font-medium tabular-nums tracking-tight text-indigo-600 hover:underline"
+                    >
+                      {m.value}
+                    </button>
                   ) : (
                     <p className="text-xl font-medium tabular-nums tracking-tight">{m.value}</p>
                   )}

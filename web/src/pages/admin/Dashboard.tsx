@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { CalendarRange, ReceiptIndianRupee, UserPlus } from 'lucide-react'
 import { DatePicker } from '@/components/DatePicker'
 import { EmployeeQuickView } from '@/components/EmployeeQuickView'
+import { KpiListDialog } from '@/components/KpiListDialog'
+import { LeaveDecisionDialog } from '@/components/LeaveDecisionDialog'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { ShiftStatBoxes, type ShiftMetric } from '@/components/ShiftStatBoxes'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -12,6 +14,10 @@ import { formatDate, toISODate } from '@/lib/format'
 import type { Shift } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import type { AdminAttendanceRow, AdminLeaveRow, Employee } from '@/types'
+
+type KpiDrilldown =
+  | { title: string; employees: Employee[]; leaveRows?: undefined; decidable?: undefined }
+  | { title: string; leaveRows: AdminLeaveRow[]; decidable?: boolean; employees?: undefined }
 
 const QUICK_ACTIONS = [
   { to: '/admin/employees?invite=1', label: 'Add employee', icon: UserPlus },
@@ -25,9 +31,15 @@ function yesterdayOf(dateISO: string): string {
   return toISODate(d)
 }
 
+function reloadAll(...apis: { reload: () => void }[]) {
+  for (const a of apis) a.reload()
+}
+
 export function AdminDashboard() {
   const [date, setDate] = useState(toISODate(new Date()))
   const isToday = date === toISODate(new Date())
+  const [drilldown, setDrilldown] = useState<KpiDrilldown | null>(null)
+  const [decidingRow, setDecidingRow] = useState<AdminLeaveRow | null>(null)
 
   const roster = useApi<Employee[]>('/admin/employees')
   const pendingLeave = useApi<AdminLeaveRow[]>('/admin/leave?status=PENDING')
@@ -38,6 +50,10 @@ export function AdminDashboard() {
 
   const loading =
     roster.loading || pendingLeave.loading || attendanceForDate.loading || (isToday && previousAttendance.loading)
+
+  function onDecided() {
+    reloadAll(pendingLeave, approvedLeave, attendanceForDate)
+  }
 
   const shiftById = useMemo(() => {
     const map = new Map<string, Shift | null>()
@@ -68,29 +84,59 @@ export function AdminDashboard() {
   const presentCount = [...presentByEmployee.values()].filter(Boolean).length
   const presentRate = totalEmployees > 0 ? presentCount / totalEmployees : 0
 
-  const metricsForShift = (shift: Shift): ShiftMetric[] => {
-    const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
-    const present = (roster.data ?? []).filter((e) => e.shift === shift && presentByEmployee.get(e.id)).length
-    const pending = (pendingLeave.data ?? []).filter((l) => shiftById.get(l.employee.id) === shift).length
-    return [
-      { label: 'Employees', value: headcount },
-      { label: isToday ? 'Present today' : 'Present', value: present },
-      { label: 'Leave pending', value: pending },
-    ]
-  }
+  const employeesInShift = (shift: Shift) => (roster.data ?? []).filter((e) => e.shift === shift)
+  const presentInShift = (shift: Shift) => employeesInShift(shift).filter((e) => presentByEmployee.get(e.id))
+  const pendingInShift = (shift: Shift) => (pendingLeave.data ?? []).filter((l) => shiftById.get(l.employee.id) === shift)
+
+  const metricsForShift = (shift: Shift): ShiftMetric[] => [
+    {
+      label: 'Employees',
+      value: employeesInShift(shift).length,
+      onClick: () => setDrilldown({ title: `${shift} — Employees`, employees: employeesInShift(shift) }),
+    },
+    {
+      label: isToday ? 'Present today' : 'Present',
+      value: presentInShift(shift).length,
+      onClick: () => setDrilldown({ title: `${shift} — Present`, employees: presentInShift(shift) }),
+    },
+    {
+      label: 'Leave pending',
+      value: pendingInShift(shift).length,
+      onClick: () => setDrilldown({ title: `${shift} — Leave pending`, leaveRows: pendingInShift(shift), decidable: true }),
+    },
+  ]
 
   const rateForShift = (shift: Shift): number | null => {
-    const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
+    const headcount = employeesInShift(shift).length
     if (headcount === 0) return null
-    const present = (roster.data ?? []).filter((e) => e.shift === shift && presentByEmployee.get(e.id)).length
-    return present / headcount
+    return presentInShift(shift).length / headcount
   }
 
   const kpis = [
-    { label: 'Total employees', value: totalEmployees },
-    { label: isToday ? 'Present today' : 'Present', value: `${presentCount} (${Math.round(presentRate * 100)}%)` },
-    { label: 'On leave', value: onLeaveToday.length },
-    { label: 'Pending approvals', value: (pendingLeave.data ?? []).length },
+    {
+      label: 'Total employees',
+      value: totalEmployees,
+      onClick: () => setDrilldown({ title: 'Total employees', employees: roster.data ?? [] }),
+    },
+    {
+      label: isToday ? 'Present today' : 'Present',
+      value: `${presentCount} (${Math.round(presentRate * 100)}%)`,
+      onClick: () =>
+        setDrilldown({
+          title: isToday ? 'Present today' : 'Present',
+          employees: (roster.data ?? []).filter((e) => presentByEmployee.get(e.id)),
+        }),
+    },
+    {
+      label: 'On leave',
+      value: onLeaveToday.length,
+      onClick: () => setDrilldown({ title: 'On leave', leaveRows: onLeaveToday }),
+    },
+    {
+      label: 'Pending approvals',
+      value: (pendingLeave.data ?? []).length,
+      onClick: () => setDrilldown({ title: 'Pending approvals', leaveRows: pendingLeave.data ?? [], decidable: true }),
+    },
   ]
 
   return (
@@ -115,7 +161,13 @@ export function AdminDashboard() {
             {loading ? (
               <Skeleton className="h-7 w-16" />
             ) : (
-              <p className="text-2xl font-medium tabular-nums tracking-tight">{k.value}</p>
+              <button
+                type="button"
+                onClick={k.onClick}
+                className="text-2xl font-medium tabular-nums tracking-tight text-indigo-600 hover:underline"
+              >
+                {k.value}
+              </button>
             )}
             <p className="text-[11px] text-muted-foreground">{k.label}</p>
           </div>
@@ -141,14 +193,20 @@ export function AdminDashboard() {
             ) : (
               <ul className="divide-y divide-border">
                 {(pendingLeave.data ?? []).slice(0, 5).map((l) => (
-                  <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
+                  <li
+                    key={l.id}
+                    onClick={() => setDecidingRow(l)}
+                    className="-mx-2 flex cursor-pointer items-center justify-between gap-3 rounded-md px-2 py-2.5 hover:bg-zinc-50"
+                  >
                     <div>
                       <p className="text-sm">
-                        <EmployeeQuickView employeeId={l.employee.id}>
-                          <button type="button" className="font-medium hover:underline">
-                            {l.employee.name}
-                          </button>
-                        </EmployeeQuickView>{' '}
+                        <span onClick={(e) => e.stopPropagation()}>
+                          <EmployeeQuickView employeeId={l.employee.id}>
+                            <button type="button" className="font-medium hover:underline">
+                              {l.employee.name}
+                            </button>
+                          </EmployeeQuickView>
+                        </span>{' '}
                         <LeaveTypePill type={l.type} />
                       </p>
                       <p className="text-xs text-muted-foreground">
@@ -181,6 +239,26 @@ export function AdminDashboard() {
           </CardContent>
         </Card>
       </div>
+
+      <KpiListDialog
+        open={drilldown !== null}
+        onOpenChange={(next) => !next && setDrilldown(null)}
+        title={drilldown?.title ?? ''}
+        employees={drilldown?.employees}
+        leaveRows={drilldown?.leaveRows}
+        decidable={drilldown?.decidable}
+        onDecided={onDecided}
+      />
+
+      <LeaveDecisionDialog
+        open={decidingRow !== null}
+        onOpenChange={(next) => !next && setDecidingRow(null)}
+        leave={decidingRow}
+        onDecided={() => {
+          setDecidingRow(null)
+          onDecided()
+        }}
+      />
     </div>
   )
 }
