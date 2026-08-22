@@ -2,7 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus } from 'lucide-react'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -24,10 +24,6 @@ import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
 import { SHIFTS } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import type { Employee, Payroll, Role } from '@/types'
-
-function initials(name: string) {
-  return name.split(' ').map((p) => p[0]).slice(0, 2).join('')
-}
 
 function AddSalaryDialog({ employeeId, onCreated }: { employeeId: string; onCreated: () => void }) {
   const [open, setOpen] = useState(false)
@@ -161,11 +157,7 @@ export function EmployeeDetail() {
 
       <Card className="shadow-sm">
         <CardContent className="flex items-center gap-4 pt-6">
-          <Avatar className="size-16">
-            <AvatarFallback className="bg-indigo-100 text-lg font-medium text-indigo-700">
-              {initials(employee.name)}
-            </AvatarFallback>
-          </Avatar>
+          <EmployeeAvatar name={employee.name} photoUrl={employee.photoUrl} className="size-16" fallbackClassName="text-lg" />
           <div className="flex-1">
             <p className="text-base font-medium">{employee.name}</p>
             <p className="text-sm text-muted-foreground">{employee.email}</p>

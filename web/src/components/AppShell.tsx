@@ -10,8 +10,8 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useSession } from '@/auth/session'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
+import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { cn } from '@/lib/utils'
 
 const EMPLOYEE_NAV = [
@@ -29,14 +29,6 @@ const ADMIN_NAV = [
   { to: '/admin/attendance', label: 'Attendance', icon: CalendarDays },
   { to: '/admin/leave', label: 'Leave approvals', icon: CalendarRange },
 ]
-
-function initials(name: string) {
-  return name
-    .split(' ')
-    .map((p) => p[0])
-    .slice(0, 2)
-    .join('')
-}
 
 export function AppShell() {
   const { employee, signOut } = useSession()
@@ -102,11 +94,7 @@ export function AppShell() {
               <p className="text-xs font-medium">{employee.name}</p>
               <p className="text-[11px] text-muted-foreground">{employee.email}</p>
             </div>
-            <Avatar className="size-8">
-              <AvatarFallback className="bg-indigo-100 text-xs font-medium text-indigo-700">
-                {initials(employee.name)}
-              </AvatarFallback>
-            </Avatar>
+            <EmployeeAvatar name={employee.name} photoUrl={employee.photoUrl} className="size-8" fallbackClassName="text-xs" />
           </div>
         </header>
 
