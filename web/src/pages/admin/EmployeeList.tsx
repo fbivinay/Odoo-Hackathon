@@ -136,7 +136,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Share this password with them directly — it won't be shown again.
+                Share this password with them directly. It won't be shown again.
               </p>
               <div className="flex items-center gap-2 rounded-md border bg-zinc-50 px-3 py-2">
                 <code className="flex-1 text-sm font-medium">{result.tempPassword}</code>
