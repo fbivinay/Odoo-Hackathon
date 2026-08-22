@@ -13,16 +13,17 @@ const adminEditSchema = z.object({
   photoUrl: z.string().url().optional(),
   jobTitle: z.string().optional(),
   department: z.string().optional(),
+  shift: z.string().optional(),
   role: z.enum(['EMPLOYEE', 'HR_ADMIN']).optional(),
 });
 
 const inviteSchema = z.object({
-  employeeId: z.string().min(1),
   email: z.string().email(),
   name: z.string().min(1),
   role: z.enum(['EMPLOYEE', 'HR_ADMIN']).default('EMPLOYEE'),
   jobTitle: z.string().optional(),
   department: z.string().optional(),
+  shift: z.string().optional(),
 });
 
 module.exports = { selfEditSchema, adminEditSchema, inviteSchema };

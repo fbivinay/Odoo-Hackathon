@@ -44,18 +44,22 @@ model Employee {
   photoUrl      String?
   jobTitle      String?
   department    String?
+  shift         String?
+  isActive      Boolean   @default(true)
   emailVerified Boolean   @default(false)
   verifyToken   String?
   verifyExpires DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  attendance     Attendance[]
-  leaveRequests  Leave[]      @relation("LeaveOwner")
-  decidedLeaves  Leave[]      @relation("LeaveDecider")
-  payrollRows    Payroll[]    @relation("PayrollOwner")
-  createdPayroll Payroll[]    @relation("PayrollCreator")
-  auditLogs      AuditLog[]
+  attendance        Attendance[]
+  leaveRequests     Leave[]      @relation("LeaveOwner")
+  decidedLeaves     Leave[]      @relation("LeaveDecider")
+  payrollRows       Payroll[]    @relation("PayrollOwner")
+  createdPayroll    Payroll[]    @relation("PayrollCreator")
+  auditLogs         AuditLog[]
+  documents         Document[]   @relation("DocumentOwner")
+  uploadedDocuments Document[]   @relation("DocumentUploader")
 
   @@map("employees")
 }
@@ -70,6 +74,7 @@ model Attendance {
   status     AttendanceStatus @default(ABSENT)
 
   @@unique([employeeId, date])
+  @@index([date])
   @@map("attendance")
 }
 
@@ -88,6 +93,7 @@ model Leave {
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
 
+  @@index([status])
   @@map("leave_requests")
 }
 
@@ -101,7 +107,22 @@ model Payroll {
   createdBy     Employee @relation("PayrollCreator", fields: [createdById], references: [id])
   createdAt     DateTime @default(now())
 
+  @@index([employeeId, effectiveDate])
   @@map("payroll")
+}
+
+model Document {
+  id           String   @id @default(uuid())
+  employeeId   String
+  employee     Employee @relation("DocumentOwner", fields: [employeeId], references: [id])
+  name         String
+  url          String
+  uploadedById String
+  uploadedBy   Employee @relation("DocumentUploader", fields: [uploadedById], references: [id])
+  createdAt    DateTime @default(now())
+
+  @@index([employeeId])
+  @@map("documents")
 }
 
 model AuditLog {

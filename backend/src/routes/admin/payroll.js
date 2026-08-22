@@ -15,6 +15,14 @@ router.post(
 );
 
 router.get(
+  '/',
+  asyncHandler(async (req, res) => {
+    const data = await payrollService.listCurrentForAll();
+    res.json({ ok: true, data });
+  })
+);
+
+router.get(
   '/:employeeId/history',
   asyncHandler(async (req, res) => {
     const data = await payrollService.getHistory(req.params.employeeId);

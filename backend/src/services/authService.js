@@ -5,7 +5,7 @@ const { unauthorized } = require('../lib/errors');
 
 async function signin({ email, password }) {
   const employee = await prisma.employee.findUnique({ where: { email: email.toLowerCase() } });
-  if (!employee) throw unauthorized('Invalid email or password');
+  if (!employee || !employee.isActive) throw unauthorized('Invalid email or password');
 
   const valid = await bcrypt.compare(password, employee.passwordHash);
   if (!valid) throw unauthorized('Invalid email or password');

@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const { randomInt } = require('crypto');
 const prisma = require('../lib/prisma');
 const { notFound, conflict } = require('../lib/errors');
+const { recordAudit } = require('./auditService');
 
 const UPPER = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const LOWER = 'abcdefghijkmnopqrstuvwxyz';
@@ -34,6 +35,8 @@ const PUBLIC_FIELDS = {
   photoUrl: true,
   jobTitle: true,
   department: true,
+  shift: true,
+  isActive: true,
   emailVerified: true,
   mustChangePassword: true,
   createdAt: true,
@@ -54,9 +57,10 @@ async function updateAsAdmin(id, data) {
   return prisma.employee.update({ where: { id }, data, select: PUBLIC_FIELDS });
 }
 
-async function list({ search }) {
-  return prisma.employee.findMany({
-    where: search
+async function list({ search, includeInactive, page, limit } = {}) {
+  const where = {
+    ...(includeInactive ? {} : { isActive: true }),
+    ...(search
       ? {
           OR: [
             { name: { contains: search, mode: 'insensitive' } },
@@ -64,36 +68,65 @@ async function list({ search }) {
             { employeeId: { contains: search, mode: 'insensitive' } },
           ],
         }
-      : undefined,
-    select: PUBLIC_FIELDS,
-    orderBy: { name: 'asc' },
-  });
+      : {}),
+  };
+
+  if (!page && !limit) {
+    return prisma.employee.findMany({ where, select: PUBLIC_FIELDS, orderBy: { name: 'asc' } });
+  }
+
+  const pageNum = Math.max(1, page || 1);
+  const limitNum = Math.min(200, Math.max(1, limit || 25));
+
+  const [data, total] = await Promise.all([
+    prisma.employee.findMany({
+      where,
+      select: PUBLIC_FIELDS,
+      orderBy: { name: 'asc' },
+      skip: (pageNum - 1) * limitNum,
+      take: limitNum,
+    }),
+    prisma.employee.count({ where }),
+  ]);
+
+  return { data, total, page: pageNum, limit: limitNum };
 }
 
-async function invite({ employeeId, email, name, role, jobTitle, department }) {
+async function nextEmployeeId(tx) {
+  const rows = await tx.employee.findMany({ select: { employeeId: true } });
+  const max = rows.reduce((m, r) => {
+    const match = /^EMP-(\d+)$/.exec(r.employeeId);
+    return match ? Math.max(m, parseInt(match[1], 10)) : m;
+  }, 0);
+  return `EMP-${String(max + 1).padStart(4, '0')}`;
+}
+
+async function invite({ email, name, role, jobTitle, department, shift }) {
   const normalizedEmail = email.toLowerCase();
 
-  const existing = await prisma.employee.findFirst({
-    where: { OR: [{ email: normalizedEmail }, { employeeId }] },
-  });
-  if (existing) throw conflict('An account with this email or employee ID already exists');
+  const existing = await prisma.employee.findUnique({ where: { email: normalizedEmail } });
+  if (existing) throw conflict('An account with this email already exists');
 
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 10);
 
-  const employee = await prisma.employee.create({
-    data: {
-      employeeId,
-      email: normalizedEmail,
-      passwordHash,
-      role: role || 'EMPLOYEE',
-      name,
-      jobTitle,
-      department,
-      emailVerified: true,
-      mustChangePassword: true,
-    },
-    select: PUBLIC_FIELDS,
+  const employee = await prisma.$transaction(async (tx) => {
+    const employeeId = await nextEmployeeId(tx);
+    return tx.employee.create({
+      data: {
+        employeeId,
+        email: normalizedEmail,
+        passwordHash,
+        role: role || 'EMPLOYEE',
+        name,
+        jobTitle,
+        department,
+        shift,
+        emailVerified: true,
+        mustChangePassword: true,
+      },
+      select: PUBLIC_FIELDS,
+    });
   });
 
   // Returned once, here only — never stored or logged in plaintext elsewhere.
@@ -101,4 +134,27 @@ async function invite({ employeeId, email, name, role, jobTitle, department }) {
   return { employee, tempPassword };
 }
 
-module.exports = { getById, updateSelf, updateAsAdmin, list, invite, PUBLIC_FIELDS };
+async function deactivate(id, actorId) {
+  return prisma.$transaction(async (tx) => {
+    const employee = await tx.employee.findUnique({ where: { id } });
+    if (!employee) throw notFound('Employee not found');
+
+    const updated = await tx.employee.update({
+      where: { id },
+      data: { isActive: false },
+      select: PUBLIC_FIELDS,
+    });
+
+    await recordAudit(tx, {
+      actorId,
+      action: 'EMPLOYEE_DEACTIVATE',
+      entity: 'Employee',
+      entityId: id,
+      meta: null,
+    });
+
+    return updated;
+  });
+}
+
+module.exports = { getById, updateSelf, updateAsAdmin, list, invite, deactivate, PUBLIC_FIELDS };

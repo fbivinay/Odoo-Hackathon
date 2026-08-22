@@ -23,6 +23,7 @@ This file is the execution checklist AND the architecture reference — schema, 
 - **Free-tier note:** Render's free instance sleeps after ~15 min idle — the first request after a gap can take up to ~30s to wake it up. Hit `/health` a minute before demoing or testing to warm it up.
 - **Auth header:** every non-auth request needs `Authorization: Bearer <token>`. Get the token from `POST /api/auth/signin` (`data.token` in the response).
 - **This is real data, not mocks.** All endpoints are live against the shared Neon Postgres DB and have been verified end to end (admin invite → signin with temp password → forced change-password → old password rejected, plus check-in → apply leave → admin approve, every admin CRUD route, RBAC 401/403, and CORS from `http://localhost:5173`). Build directly against the real API — no need to fake responses.
+- **Latest backend additions (2026-08-22):** `shift` field on Employee (nullable string, e.g. `"Shift 1"`); employee deactivation (`PATCH /api/admin/employees/:id/deactivate` — soft delete, blocks sign-in, excluded from the default list); consolidated payroll view (`GET /api/admin/payroll` — every active employee's current salary in one call); `employeeId` is now always server-generated on invite, never client-supplied; a documents feature (`/api/me/documents`, `/api/admin/documents/:employeeId`); pagination on `GET /api/admin/employees` via `page`/`limit`. DB has been reseeded — 1 admin + 30 employees (10 per shift) instead of the earlier flat roster, same login pattern (`firstname.lastname@dayflow.dev` / `Password123`).
 - **Seeded logins** (`Password123` for all): `admin@dayflow.dev` (HR_ADMIN), `employee1@dayflow.dev` ... `employee8@dayflow.dev` (EMPLOYEE).
 - **There is no public sign-up page.** Remove `/sign-up` and `/verify-email` from the frontend entirely — the only public route is `/sign-in`. New employees are created by an admin via "Invite employee" (`POST /api/admin/employees/invite`), which returns a one-time temp password for the admin to relay to them. On first sign-in, `data.employee.mustChangePassword` will be `true` — redirect straight to a change-password screen (`PATCH /api/me/password`, body `{ currentPassword, newPassword }`) before letting them into the app.
 - **CORS:** currently allows `http://localhost:5173` only. If you deploy the frontend anywhere else, tell A so the `CORS_ORIGIN` env var on Render gets updated to match — otherwise every request will fail with a CORS error.
@@ -173,23 +174,29 @@ Response envelope: `{ ok: true, data }` on success, `{ ok: false, error, message
 |---|---|---|---|
 | POST | `/api/auth/signin` | none | returns JWT + `employee.mustChangePassword` — if true, force the change-password screen before anything else |
 | PATCH | `/api/me/password` | employee | body `{ currentPassword, newPassword }`, clears `mustChangePassword` |
-| POST | `/api/admin/employees/invite` | admin | body `{ employeeId, email, name, role?, jobTitle?, department? }` — returns `{ employee, tempPassword }`, admin relays the temp password out of band |
+| POST | `/api/admin/employees/invite` | admin | body `{ email, name, role?, jobTitle?, department?, shift? }` — `employeeId` is now generated server-side (sequential `EMP-XXXX`), no longer accepted in the request; returns `{ employee, tempPassword }`, admin relays the temp password out of band |
 | GET | `/api/me` | employee | own profile |
 | PATCH | `/api/me` | employee | limited fields only |
 | POST | `/api/me/photo` | employee | multipart upload |
+| GET | `/api/me/documents` | employee | list own documents |
+| POST | `/api/me/documents` | employee | multipart upload, PDF/JPEG/PNG only |
 | POST | `/api/attendance/check-in` | employee | idempotent per employee+date |
 | POST | `/api/attendance/check-out` | employee | |
 | GET | `/api/attendance` | employee | own records, daily/weekly range param |
 | POST | `/api/leave` | employee | apply |
 | GET | `/api/leave` | employee | own requests |
 | GET | `/api/payroll/me` | employee | read-only |
-| GET | `/api/admin/employees` | admin | list + search |
+| GET | `/api/admin/employees` | admin | list + search; query params `page`, `limit` (paginated response shape `{ data, total, page, limit }` when either is passed, plain array otherwise); `includeInactive=true` to include deactivated employees (excluded by default) |
 | GET | `/api/admin/employees/:id` | admin | detail |
-| PATCH | `/api/admin/employees/:id` | admin | edit any field |
+| PATCH | `/api/admin/employees/:id` | admin | edit any field (now also accepts `shift`) |
+| PATCH | `/api/admin/employees/:id/deactivate` | admin | soft-deletes (sets `isActive: false`); sign-in is rejected for inactive employees afterward |
 | GET | `/api/admin/attendance` | admin | all employees, date param |
 | GET | `/api/admin/leave` | admin | queue, filter by status |
 | PATCH | `/api/admin/leave/:id` | admin | approve/reject + comment |
+| GET | `/api/admin/payroll` | admin | consolidated view — current salary for every active employee in one call |
 | POST | `/api/admin/payroll` | admin | new salary row |
+| GET | `/api/admin/documents/:employeeId` | admin | list an employee's documents |
+| POST | `/api/admin/documents/:employeeId` | admin | upload a document on an employee's behalf, PDF/JPEG/PNG only |
 
 Auth header: `Authorization: Bearer <JWT>`. JWT payload carries `{ sub: employeeId, role }`.
 

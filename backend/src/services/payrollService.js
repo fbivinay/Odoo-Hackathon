@@ -33,4 +33,24 @@ async function create(createdById, { employeeId, baseSalary, effectiveDate }) {
   });
 }
 
-module.exports = { getCurrent, getHistory, create };
+async function listCurrentForAll() {
+  const employees = await prisma.employee.findMany({
+    where: { isActive: true },
+    select: { id: true, employeeId: true, name: true, department: true, jobTitle: true },
+    orderBy: { name: 'asc' },
+  });
+
+  const rows = await prisma.payroll.findMany({
+    where: { employeeId: { in: employees.map((e) => e.id) } },
+    orderBy: { effectiveDate: 'desc' },
+  });
+
+  const latestByEmployee = new Map();
+  for (const row of rows) {
+    if (!latestByEmployee.has(row.employeeId)) latestByEmployee.set(row.employeeId, row);
+  }
+
+  return employees.map((e) => ({ ...e, payroll: latestByEmployee.get(e.id) ?? null }));
+}
+
+module.exports = { getCurrent, getHistory, create, listCurrentForAll };

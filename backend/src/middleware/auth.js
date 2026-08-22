@@ -20,6 +20,7 @@ const requireAuth = asyncHandler(async (req, res, next) => {
 
   const employee = await prisma.employee.findUnique({ where: { id: payload.sub } });
   if (!employee) throw unauthorized('Account no longer exists');
+  if (!employee.isActive) throw unauthorized('Account has been deactivated');
 
   req.user = { id: employee.id, role: employee.role, employeeId: employee.employeeId };
   next();
