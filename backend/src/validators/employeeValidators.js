@@ -23,7 +23,7 @@ const inviteSchema = z.object({
   role: z.enum(['EMPLOYEE', 'HR_ADMIN']).default('EMPLOYEE'),
   jobTitle: z.string().optional(),
   department: z.string().optional(),
-  shift: z.string().optional(),
+  shift: z.string().min(1, 'Shift is required'),
 });
 
 module.exports = { selfEditSchema, adminEditSchema, inviteSchema };
