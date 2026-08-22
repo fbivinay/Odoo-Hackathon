@@ -2,7 +2,7 @@ import { AttendanceStatusPill } from '@/components/StatusPill'
 import { DataTable } from '@/components/DataTable'
 import { EmptyState } from '@/components/EmptyState'
 import { displayStatus } from '@/lib/attendance'
-import { formatDate, formatTime, toISODate } from '@/lib/format'
+import { asISODate, formatDate, formatTime, toISODate } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
 import { CalendarX2 } from 'lucide-react'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -27,7 +27,7 @@ const columns: ColumnDef<AttendanceRow, any>[] = [
     header: 'Status',
     enableSorting: false,
     cell: ({ row }) => {
-      const isToday = row.original.date === toISODate(new Date())
+      const isToday = asISODate(row.original.date) === toISODate(new Date())
       return <AttendanceStatusPill status={displayStatus(row.original, isToday)} />
     },
   },

@@ -1,4 +1,4 @@
-import { toISODate } from './format'
+import { asISODate, toISODate } from './format'
 import type { Attendance, DisplayStatus } from '@/types'
 
 export const STATUS_META: Record<DisplayStatus, { label: string; bar: string; pill: string }> = {
@@ -51,7 +51,7 @@ export interface RibbonDay {
 
 // Fills gaps (weekends, days with no attendance row) so the ribbon always shows a fixed window.
 export function buildRibbonDays(records: Attendance[], days = 30): RibbonDay[] {
-  const byDate = new Map(records.map((r) => [r.date, r]))
+  const byDate = new Map(records.map((r) => [asISODate(r.date), r]))
   const today = toISODate(new Date())
   const out: RibbonDay[] = []
   for (let i = days - 1; i >= 0; i--) {

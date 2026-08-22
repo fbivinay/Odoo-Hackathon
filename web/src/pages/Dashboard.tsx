@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
-import { elapsed, formatDate, toISODate } from '@/lib/format'
+import { asISODate, elapsed, formatDate, toISODate } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
 import type { Attendance, Leave } from '@/types'
 
@@ -34,7 +34,7 @@ export function Dashboard() {
   const [busy, setBusy] = useState(false)
 
   const records = attendance.data ?? []
-  const today = records.find((r) => r.date === toISODate(new Date())) ?? null
+  const today = records.find((r) => asISODate(r.date) === toISODate(new Date())) ?? null
   const present = records.filter((r) => r.status === 'PRESENT').length
   const absent = records.filter((r) => r.status === 'ABSENT').length
   const pending = (leave.data ?? []).filter((l) => l.status === 'PENDING').length

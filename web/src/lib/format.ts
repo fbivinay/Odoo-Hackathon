@@ -27,6 +27,12 @@ export function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
+// API date fields (Attendance.date, Leave.startDate/endDate, Payroll.effectiveDate) come back
+// as full ISO datetimes at UTC midnight, not plain YYYY-MM-DD — normalize before comparing.
+export function asISODate(value: string): string {
+  return value.slice(0, 10)
+}
+
 export function elapsed(fromISO: string, now = Date.now()): string {
   const secs = Math.max(0, Math.floor((now - new Date(fromISO).getTime()) / 1000))
   const h = Math.floor(secs / 3600)
