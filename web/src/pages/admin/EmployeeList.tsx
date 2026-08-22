@@ -83,6 +83,10 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    if (!shift) {
+      setError('Select a shift.')
+      return
+    }
     setBusy(true)
     setError(null)
     try {
@@ -95,7 +99,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
           role,
           jobTitle: jobTitle || undefined,
           department: department || undefined,
-          shift: shift || undefined,
+          shift,
         },
       })
       setResult(data)
@@ -221,8 +225,10 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shift">Shift</Label>
-                <Select value={shift} onValueChange={setShift}>
+                <Label htmlFor="shift">
+                  Shift <span className="text-rose-600">*</span>
+                </Label>
+                <Select value={shift} onValueChange={setShift} required>
                   <SelectTrigger id="shift" className="w-full">
                     <SelectValue placeholder="Select shift" />
                   </SelectTrigger>

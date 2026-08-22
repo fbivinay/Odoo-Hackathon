@@ -437,6 +437,8 @@ export async function mockRequest<T>(
   }
 
   if (route === '/admin/employees/invite' && method === 'POST') {
+    if (!(body as unknown as { shift?: string }).shift)
+      fail('VALIDATION_ERROR', 'Shift is required')
     if (allUsers.some((u) => u.employeeId === body.employeeId || u.email === body.email))
       fail('CONFLICT', 'An account with this email or employee ID already exists')
     const tempPassword = 'TempPass123'
