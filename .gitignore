@@ -26,6 +26,11 @@ build/
 .idea/
 .DS_Store
 
+# AI tool local config (never commit)
+.claude/
+.cursor/
+.aider*
+
 # Logs
 logs/
 *.log
