@@ -9,8 +9,16 @@ import {
   Users,
   UserRound,
 } from 'lucide-react'
+import { useState } from 'react'
 import { useSession } from '@/auth/session'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { cn } from '@/lib/utils'
 
@@ -34,6 +42,7 @@ export function AppShell() {
   const { employee, signOut } = useSession()
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const [confirmingSignOut, setConfirmingSignOut] = useState(false)
   if (!employee) return null
 
   const nav = employee.role === 'HR_ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
@@ -79,12 +88,36 @@ export function AppShell() {
         </nav>
 
         <div className="border-t border-border p-3">
-          <Button variant="ghost" size="sm" className="w-full justify-start gap-2.5 text-zinc-600" onClick={handleSignOut}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="w-full justify-start gap-2.5 text-zinc-600"
+            onClick={() => setConfirmingSignOut(true)}
+          >
             <LogOut className="size-4" />
             Log out
           </Button>
         </div>
       </aside>
+
+      <Dialog open={confirmingSignOut} onOpenChange={setConfirmingSignOut}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Log out?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            You'll need to sign in again to get back to your dashboard.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmingSignOut(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleSignOut}>
+              Log out
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <div className="flex min-w-0 flex-1 flex-col md:pl-60">
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-white/80 px-6 backdrop-blur">
