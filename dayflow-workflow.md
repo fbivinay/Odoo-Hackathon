@@ -15,6 +15,16 @@ This file is the execution checklist AND the architecture reference — schema, 
 
 ---
 
+## Backend integration status (read this first, B)
+
+- **Base URL:** `http://localhost:4000` (local dev). All routes are under `/api/*` — see §2 for the full contract. Health check: `GET /health`.
+- **Auth header:** every non-auth request needs `Authorization: Bearer <token>`. Get the token from `POST /api/auth/signin` (`data.token` in the response).
+- **This is real data, not mocks.** All 19 endpoints are live against the shared Neon Postgres DB and have been verified end to end (signup → verify → signin → check-in → apply leave → admin approve, plus every admin CRUD route and RBAC 401/403 behavior). Build directly against the real API — no need to fake responses.
+- **Seeded logins** (`Password123` for all): `admin@dayflow.dev` (HR_ADMIN), `employee1@dayflow.dev` ... `employee8@dayflow.dev` (EMPLOYEE).
+- **Public signup always creates role `EMPLOYEE`** — there is no role field in the signup form; admin accounts only come from the seed data or an admin promoting someone via `PATCH /api/admin/employees/:id`.
+
+---
+
 ## 0. Requirement coverage map
 
 Every item below is copied from the PDF (§3.1–3.6) so you can tick it off directly against the brief, not against a paraphrase of it.
