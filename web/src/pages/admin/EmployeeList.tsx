@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { downloadCSV, toCSV } from '@/lib/csv'
 import { api, ApiError } from '@/lib/api'
 import { formatDate, toISODate } from '@/lib/format'
+import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
 import { useApi } from '@/lib/useApi'
 import { useDebounced } from '@/lib/useDebounced'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -69,6 +70,11 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
     setDepartment('')
     setError(null)
     setResult(null)
+  }
+
+  function onDepartmentChange(next: string) {
+    setDepartment(next)
+    if (!designationsFor(next).includes(jobTitle)) setJobTitle('')
   }
 
   async function onSubmit(e: FormEvent) {
@@ -180,12 +186,34 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="jobTitle">Job title</Label>
-                  <Input id="jobTitle" value={jobTitle} onChange={(e) => setJobTitle(e.target.value)} />
+                  <Label htmlFor="department">Department</Label>
+                  <Select value={department} onValueChange={onDepartmentChange}>
+                    <SelectTrigger id="department" className="w-full">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEPARTMENTS.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="department">Department</Label>
-                  <Input id="department" value={department} onChange={(e) => setDepartment(e.target.value)} />
+                  <Label htmlFor="jobTitle">Job title</Label>
+                  <Select value={jobTitle} onValueChange={setJobTitle} disabled={!department}>
+                    <SelectTrigger id="jobTitle" className="w-full">
+                      <SelectValue placeholder={department ? 'Select title' : 'Pick a department first'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designationsFor(department).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
               {error && <p className="text-xs text-rose-600">{error}</p>}

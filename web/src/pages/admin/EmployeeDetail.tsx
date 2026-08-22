@@ -20,6 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
 import { formatDate, formatINR, toISODate } from '@/lib/format'
+import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
 import { useApi } from '@/lib/useApi'
 import type { Employee, Payroll, Role } from '@/types'
 
@@ -186,20 +187,47 @@ export function EmployeeDetail() {
             <form className="space-y-4" onSubmit={onSave}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="jobTitle">Designation</Label>
-                  <Input
-                    id="jobTitle"
-                    value={form.jobTitle}
-                    onChange={(e) => setForm((f) => ({ ...f, jobTitle: e.target.value }))}
-                  />
+                  <Label htmlFor="department">Department</Label>
+                  <Select
+                    value={form.department}
+                    onValueChange={(v) =>
+                      setForm((f) => ({
+                        ...f,
+                        department: v,
+                        jobTitle: designationsFor(v).includes(f.jobTitle) ? f.jobTitle : '',
+                      }))
+                    }
+                  >
+                    <SelectTrigger id="department" className="w-full">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DEPARTMENTS.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="department">Department</Label>
-                  <Input
-                    id="department"
-                    value={form.department}
-                    onChange={(e) => setForm((f) => ({ ...f, department: e.target.value }))}
-                  />
+                  <Label htmlFor="jobTitle">Designation</Label>
+                  <Select
+                    value={form.jobTitle}
+                    onValueChange={(v) => setForm((f) => ({ ...f, jobTitle: v }))}
+                    disabled={!form.department}
+                  >
+                    <SelectTrigger id="jobTitle" className="w-full">
+                      <SelectValue placeholder={form.department ? 'Select title' : 'Pick a department first'} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {designationsFor(form.department).map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="role">Role</Label>
