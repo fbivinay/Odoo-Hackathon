@@ -1,8 +1,8 @@
 function escapeCell(value: unknown): string {
   if (value === null || value === undefined) return ''
   const s = String(value)
-  // Leading =, +, -, @ are treated as formulas by Excel; prefix to neutralise.
-  const safe = /^[=+\-@]/.test(s) ? `'${s}` : s
+  // Leading =, +, -, @, tab, or CR are treated as formulas by Excel/Sheets; prefix to neutralise.
+  const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe
 }
 
