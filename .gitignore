@@ -39,3 +39,6 @@ logs/
 dist-ssr/
 .vite/
 *.local
+
+# Backend uploads (local dev file storage)
+backend/uploads/

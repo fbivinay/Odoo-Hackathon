@@ -1,0 +1,117 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  EMPLOYEE
+  HR_ADMIN
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  HALF_DAY
+  LEAVE
+}
+
+enum LeaveType {
+  PAID
+  SICK
+  UNPAID
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Employee {
+  id            String    @id @default(uuid())
+  employeeId    String    @unique
+  email         String    @unique
+  passwordHash  String
+  role          Role      @default(EMPLOYEE)
+  name          String
+  phone         String?
+  address       String?
+  photoUrl      String?
+  jobTitle      String?
+  department    String?
+  emailVerified Boolean   @default(false)
+  verifyToken   String?
+  verifyExpires DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  attendance     Attendance[]
+  leaveRequests  Leave[]      @relation("LeaveOwner")
+  decidedLeaves  Leave[]      @relation("LeaveDecider")
+  payrollRows    Payroll[]    @relation("PayrollOwner")
+  createdPayroll Payroll[]    @relation("PayrollCreator")
+  auditLogs      AuditLog[]
+
+  @@map("employees")
+}
+
+model Attendance {
+  id         String           @id @default(uuid())
+  employeeId String
+  employee   Employee         @relation(fields: [employeeId], references: [id])
+  date       DateTime         @db.Date
+  checkIn    DateTime?
+  checkOut   DateTime?
+  status     AttendanceStatus @default(ABSENT)
+
+  @@unique([employeeId, date])
+  @@map("attendance")
+}
+
+model Leave {
+  id           String      @id @default(uuid())
+  employeeId   String
+  employee     Employee    @relation("LeaveOwner", fields: [employeeId], references: [id])
+  type         LeaveType
+  startDate    DateTime    @db.Date
+  endDate      DateTime    @db.Date
+  remarks      String?
+  status       LeaveStatus @default(PENDING)
+  decisionById String?
+  decisionBy   Employee?   @relation("LeaveDecider", fields: [decisionById], references: [id])
+  comment      String?
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  @@map("leave_requests")
+}
+
+model Payroll {
+  id            String   @id @default(uuid())
+  employeeId    String
+  employee      Employee @relation("PayrollOwner", fields: [employeeId], references: [id])
+  baseSalary    Decimal  @db.Decimal(12, 2)
+  effectiveDate DateTime @db.Date
+  createdById   String
+  createdBy     Employee @relation("PayrollCreator", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@map("payroll")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actorId   String
+  actor     Employee @relation(fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
