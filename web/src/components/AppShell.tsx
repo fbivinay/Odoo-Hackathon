@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   CalendarDays,
   CalendarRange,
+  ChartColumn,
   LayoutDashboard,
   LogOut,
   ReceiptIndianRupee,
@@ -23,6 +24,7 @@ const EMPLOYEE_NAV = [
 
 const ADMIN_NAV = [
   { to: '/admin', label: 'Overview', icon: LayoutDashboard, end: true },
+  { to: '/admin/analytics', label: 'Analytics', icon: ChartColumn },
   { to: '/admin/employees', label: 'Employees', icon: Users },
   { to: '/admin/attendance', label: 'Attendance', icon: CalendarDays },
   { to: '/admin/leave', label: 'Leave approvals', icon: CalendarRange },

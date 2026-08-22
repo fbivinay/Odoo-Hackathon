@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import { CalendarDays, CalendarRange, Users } from 'lucide-react'
+import { CalendarDays, CalendarRange, ChartColumn, Users } from 'lucide-react'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { KpiCard } from '@/components/tremor/KpiCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,6 +66,18 @@ export function AdminDashboard() {
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+          <Link
+            to="/admin/analytics"
+            className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50/40"
+          >
+            <div className="rounded-md bg-indigo-50 p-2 text-indigo-600">
+              <ChartColumn className="size-4" />
+            </div>
+            <div>
+              <p className="text-sm font-medium">Analytics</p>
+              <p className="text-xs text-muted-foreground">Attendance trends and leave reporting</p>
+            </div>
+          </Link>
           <Link
             to="/admin/employees"
             className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50/40"
