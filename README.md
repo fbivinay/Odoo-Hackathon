@@ -1,7 +1,7 @@
 # Dayflow HRMS
 
 > **Demo Login**
-> Email: `dayflow@admin.com` · Password: `Password123`
+> Email: `admin@dayflow.dev` · Password: `Password123`
 
 Human Resource Management System — Odoo Hackathon project.
 
