@@ -6,11 +6,12 @@ import {
   ChartColumn,
   LayoutDashboard,
   LogOut,
+  Menu,
   ReceiptIndianRupee,
   Users,
   UserRound,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, type ComponentType } from 'react'
 import { Logo } from '@/components/Logo'
 import { useSession } from '@/auth/session'
 import { Button } from '@/components/ui/button'
@@ -21,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { NotificationBell } from '@/components/NotificationBell'
 import { cn } from '@/lib/utils'
@@ -44,11 +46,69 @@ const ADMIN_NAV = [
   { to: '/notifications', label: 'Alerts', icon: Bell },
 ]
 
+interface NavItem {
+  to: string
+  label: string
+  icon: ComponentType<{ className?: string }>
+  end?: boolean
+}
+
+function SidebarNav({ nav, onNavigate, onSignOutClick }: { nav: NavItem[]; onNavigate?: () => void; onSignOutClick: () => void }) {
+  return (
+    <>
+      <div className="flex h-14 items-center gap-2 border-b border-border px-5">
+        <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white">
+          <Logo className="size-3.5" />
+        </div>
+        <div className="leading-tight">
+          <p className="text-sm font-medium">Dayflow</p>
+          <p className="text-[11px] text-muted-foreground">Every workday, aligned</p>
+        </div>
+      </div>
+
+      <nav className="flex-1 space-y-0.5 p-3">
+        {nav.map(({ to, label, icon: Icon, end }) => (
+          <NavLink
+            key={to}
+            to={to}
+            end={end}
+            onClick={onNavigate}
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+                isActive
+                  ? 'bg-indigo-50 font-medium text-indigo-700'
+                  : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
+              )
+            }
+          >
+            <Icon className="size-4" />
+            {label}
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="border-t border-border p-3">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-2.5 text-zinc-600"
+          onClick={onSignOutClick}
+        >
+          <LogOut className="size-4" />
+          Log out
+        </Button>
+      </div>
+    </>
+  )
+}
+
 export function AppShell() {
   const { employee, signOut } = useSession()
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const [confirmingSignOut, setConfirmingSignOut] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   if (!employee) return null
 
   const nav = employee.role === 'HR_ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
@@ -62,49 +122,21 @@ export function AppShell() {
   return (
     <div className="flex min-h-screen bg-zinc-50">
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-white md:flex">
-        <div className="flex h-14 items-center gap-2 border-b border-border px-5">
-          <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white">
-            <Logo className="size-3.5" />
-          </div>
-          <div className="leading-tight">
-            <p className="text-sm font-medium">Dayflow</p>
-            <p className="text-[11px] text-muted-foreground">Every workday, aligned</p>
-          </div>
-        </div>
-
-        <nav className="flex-1 space-y-0.5 p-3">
-          {nav.map(({ to, label, icon: Icon, end }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={end}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
-                  isActive
-                    ? 'bg-indigo-50 font-medium text-indigo-700'
-                    : 'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900',
-                )
-              }
-            >
-              <Icon className="size-4" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className="border-t border-border p-3">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start gap-2.5 text-zinc-600"
-            onClick={() => setConfirmingSignOut(true)}
-          >
-            <LogOut className="size-4" />
-            Log out
-          </Button>
-        </div>
+        <SidebarNav nav={nav} onSignOutClick={() => setConfirmingSignOut(true)} />
       </aside>
+
+      <Sheet open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <SheetContent side="left" className="w-60 md:hidden">
+          <SidebarNav
+            nav={nav}
+            onNavigate={() => setMobileNavOpen(false)}
+            onSignOutClick={() => {
+              setMobileNavOpen(false)
+              setConfirmingSignOut(true)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       <Dialog open={confirmingSignOut} onOpenChange={setConfirmingSignOut}>
         <DialogContent className="sm:max-w-sm">
@@ -126,8 +158,14 @@ export function AppShell() {
       </Dialog>
 
       <div className="flex min-w-0 flex-1 flex-col md:pl-60">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-white/80 px-6 backdrop-blur">
-          <h1 className="text-sm font-medium">{activeLabel}</h1>
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-white/80 px-4 backdrop-blur sm:px-6">
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="icon-sm" className="md:hidden" onClick={() => setMobileNavOpen(true)}>
+              <Menu className="size-4.5" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+            <h1 className="text-sm font-medium">{activeLabel}</h1>
+          </div>
           <div className="flex items-center gap-3">
             <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
@@ -138,7 +176,7 @@ export function AppShell() {
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-7xl flex-1 p-6">
+        <main className="mx-auto w-full max-w-7xl flex-1 p-4 sm:p-6">
           <Outlet />
         </main>
       </div>
