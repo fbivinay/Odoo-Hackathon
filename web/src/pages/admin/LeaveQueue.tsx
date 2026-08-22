@@ -1,15 +1,19 @@
-import { useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { CalendarRange } from 'lucide-react'
+import { CalendarRange, Search } from 'lucide-react'
+import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { EmptyState } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError } from '@/lib/api'
-import { formatDate } from '@/lib/format'
+import { asISODate, formatDate } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
+import { useDebounced } from '@/lib/useDebounced'
 import type { AdminLeaveRow, LeaveStatus } from '@/types'
 
 const TABS: { value: LeaveStatus | 'ALL'; label: string }[] = [
@@ -19,17 +23,66 @@ const TABS: { value: LeaveStatus | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'All' },
 ]
 
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
 const UNDO_WINDOW_MS = 5000
+
+// The calendar months a leave request's date range touches, e.g. a request spanning
+// 28 Aug - 2 Sep covers both August and September.
+function monthsSpanned(startDate: string, endDate: string): { year: number; month: number }[] {
+  const start = new Date(`${asISODate(startDate)}T00:00:00`)
+  const end = new Date(`${asISODate(endDate)}T00:00:00`)
+  const out: { year: number; month: number }[] = []
+  const cursor = new Date(start.getFullYear(), start.getMonth(), 1)
+  const last = new Date(end.getFullYear(), end.getMonth(), 1)
+  while (cursor <= last) {
+    out.push({ year: cursor.getFullYear(), month: cursor.getMonth() })
+    cursor.setMonth(cursor.getMonth() + 1)
+  }
+  return out
+}
 
 export function LeaveQueue() {
   const [tab, setTab] = useState<LeaveStatus | 'ALL'>('PENDING')
-  const { data, loading, reload } = useApi<AdminLeaveRow[]>(
-    `/admin/leave${tab === 'ALL' ? '' : `?status=${tab}`}`,
-    [tab],
-  )
+  const [search, setSearch] = useState('')
+  const [month, setMonth] = useState('ALL')
+  const [year, setYear] = useState('ALL')
+  const debouncedSearch = useDebounced(search)
+
+  const { data, loading, reload } = useApi<AdminLeaveRow[]>('/admin/leave')
   const [comments, setComments] = useState<Record<string, string>>({})
   const [pendingLocal, setPendingLocal] = useState<Record<string, LeaveStatus>>({})
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
+
+  const all = data ?? []
+
+  const years = useMemo(() => {
+    const found = new Set<number>()
+    for (const l of all) for (const s of monthsSpanned(l.startDate, l.endDate)) found.add(s.year)
+    return [...found].sort((a, b) => b - a)
+  }, [all])
+
+  const rows = useMemo(() => {
+    const q = debouncedSearch.trim().toLowerCase()
+    return all.filter((l) => {
+      if (tab !== 'ALL' && l.status !== tab) return false
+      if (month !== 'ALL' || year !== 'ALL') {
+        const spans = monthsSpanned(l.startDate, l.endDate)
+        const hit = spans.some(
+          (s) => (month === 'ALL' || s.month === Number(month)) && (year === 'ALL' || s.year === Number(year)),
+        )
+        if (!hit) return false
+      }
+      if (q) {
+        const haystack = `${l.employee.name} ${l.employee.employeeId} ${l.remarks ?? ''} ${l.comment ?? ''}`.toLowerCase()
+        if (!haystack.includes(q)) return false
+      }
+      return true
+    })
+  }, [all, tab, month, year, debouncedSearch])
 
   function commit(row: AdminLeaveRow, status: 'APPROVED' | 'REJECTED') {
     setPendingLocal((m) => ({ ...m, [row.id]: status }))
@@ -70,8 +123,6 @@ export function LeaveQueue() {
     }, UNDO_WINDOW_MS)
   }
 
-  const rows = data ?? []
-
   return (
     <div className="space-y-4">
       <div>
@@ -79,15 +130,55 @@ export function LeaveQueue() {
         <p className="text-xs text-muted-foreground">Approve or reject with an optional comment.</p>
       </div>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as LeaveStatus | 'ALL')}>
-        <TabsList>
-          {TABS.map((t) => (
-            <TabsTrigger key={t.value} value={t.value}>
-              {t.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as LeaveStatus | 'ALL')}>
+          <TabsList>
+            {TABS.map((t) => (
+              <TabsTrigger key={t.value} value={t.value}>
+                {t.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-56">
+            <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search name, ID, remarks…"
+              className="pl-8"
+            />
+          </div>
+          <Select value={month} onValueChange={setMonth}>
+            <SelectTrigger size="sm" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All months</SelectItem>
+              {MONTHS.map((m, i) => (
+                <SelectItem key={m} value={String(i)}>
+                  {m}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={year} onValueChange={setYear}>
+            <SelectTrigger size="sm" className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All years</SelectItem>
+              {years.map((y) => (
+                <SelectItem key={y} value={String(y)}>
+                  {y}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {loading ? (
         <div className="space-y-2">
@@ -96,7 +187,10 @@ export function LeaveQueue() {
           ))}
         </div>
       ) : rows.length === 0 ? (
-        <EmptyState icon={CalendarRange} line="Nothing here." />
+        <EmptyState
+          icon={CalendarRange}
+          line={all.length === 0 ? 'Nothing here.' : 'No requests match these filters.'}
+        />
       ) : (
         <ul className="space-y-3">
           {rows.map((l) => {
@@ -107,7 +201,11 @@ export function LeaveQueue() {
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-medium">{l.employee.name}</p>
+                      <EmployeeQuickView employeeId={l.employee.id}>
+                        <button type="button" className="text-sm font-medium hover:underline">
+                          {l.employee.name}
+                        </button>
+                      </EmployeeQuickView>
                       <span className="text-xs text-muted-foreground">{l.employee.employeeId}</span>
                       <LeaveTypePill type={l.type} />
                     </div>

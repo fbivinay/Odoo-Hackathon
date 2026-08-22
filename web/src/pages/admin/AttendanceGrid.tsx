@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { CalendarDays } from 'lucide-react'
 import { AttendanceStatusPill } from '@/components/StatusPill'
 import { DataTable } from '@/components/DataTable'
+import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { EmptyState } from '@/components/EmptyState'
 import { displayStatus } from '@/lib/attendance'
 import { formatTime, toISODate } from '@/lib/format'
@@ -27,7 +28,18 @@ export function AttendanceGrid() {
   }))
 
   const columns: ColumnDef<GridRow, any>[] = [
-    { id: 'name', header: 'Name', accessorFn: (r) => r.employee.name },
+    {
+      id: 'name',
+      header: 'Name',
+      accessorFn: (r) => r.employee.name,
+      cell: ({ row }) => (
+        <EmployeeQuickView employeeId={row.original.employee.id}>
+          <button type="button" className="font-medium hover:underline">
+            {row.original.employee.name}
+          </button>
+        </EmployeeQuickView>
+      ),
+    },
     { id: 'employeeId', header: 'Employee ID', accessorFn: (r) => r.employee.employeeId },
     {
       id: 'checkIn',

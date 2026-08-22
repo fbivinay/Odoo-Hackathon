@@ -1,57 +1,153 @@
 import { toISODate } from './format'
 import { decodeToken, getToken } from './token'
-import type { AdminAttendanceRow, AdminLeaveRow, Attendance, AttendanceStatus, Employee, Leave, LeaveStatus, Payroll } from '@/types'
+import { DESIGNATIONS_BY_DEPARTMENT, type Department } from './orgStructure'
+import type { AdminAttendanceRow, AdminLeaveRow, Attendance, AttendanceStatus, Employee, Leave, LeaveStatus, LeaveType, Payroll } from '@/types'
 
 const LATENCY = 300
 
-const DEPARTMENTS = ['Engineering', 'Design', 'People Ops', 'Finance', 'Sales']
-const JOB_TITLES = [
-  'Software Engineer',
-  'Senior Software Engineer',
-  'Product Designer',
-  'HR Generalist',
-  'Financial Analyst',
-  'Account Executive',
-]
-const NAMES = [
-  'Aarav Mehta',
-  'Diya Sharma',
-  'Kabir Nair',
-  'Ishita Rao',
-  'Rohan Iyer',
-  'Ananya Bose',
-  'Vikram Sethi',
-  'Meera Pillai',
-]
-
 function uid(prefix: string, n: number) {
   return `${prefix}-${String(n).padStart(4, '0')}`
+}
+
+// Small deterministic PRNG (mulberry32) so the generated roster looks the same on every
+// reload instead of reshuffling — real-looking data that's also reproducible for a demo.
+function rngFor(seed: number) {
+  let s = seed >>> 0
+  return () => {
+    s = (s + 0x6d2b79f5) >>> 0
+    let t = s
+    t = Math.imul(t ^ (t >>> 15), t | 1)
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61)
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296
+  }
+}
+
+function pick<T>(rand: () => number, items: readonly T[]): T {
+  return items[Math.floor(rand() * items.length)]
+}
+
+// level: 0 = individual contributor, 1 = senior IC, 2 = manager/lead — drives tenure and pay.
+const ROLE_PLAN: { department: Department; designation: string; count: number; level: 0 | 1 | 2 }[] = [
+  { department: 'Engineering', designation: 'Software Engineer', count: 8, level: 0 },
+  { department: 'Engineering', designation: 'Senior Software Engineer', count: 5, level: 1 },
+  { department: 'Engineering', designation: 'Staff Engineer', count: 2, level: 1 },
+  { department: 'Engineering', designation: 'QA Engineer', count: 1, level: 0 },
+  { department: 'Engineering', designation: 'DevOps Engineer', count: 1, level: 0 },
+  { department: 'Engineering', designation: 'Engineering Manager', count: 1, level: 2 },
+  { department: 'Sales', designation: 'Sales Development Representative', count: 3, level: 0 },
+  { department: 'Sales', designation: 'Account Executive', count: 3, level: 0 },
+  { department: 'Sales', designation: 'Senior Account Executive', count: 1, level: 1 },
+  { department: 'Sales', designation: 'Sales Manager', count: 1, level: 2 },
+  { department: 'Product', designation: 'Product Analyst', count: 1, level: 0 },
+  { department: 'Product', designation: 'Associate Product Manager', count: 1, level: 0 },
+  { department: 'Product', designation: 'Product Manager', count: 2, level: 1 },
+  { department: 'Product', designation: 'Senior Product Manager', count: 1, level: 1 },
+  { department: 'Design', designation: 'Product Designer', count: 3, level: 0 },
+  { department: 'Design', designation: 'Senior Product Designer', count: 1, level: 1 },
+  { department: 'Design', designation: 'Design Manager', count: 1, level: 2 },
+  { department: 'Marketing', designation: 'Marketing Associate', count: 2, level: 0 },
+  { department: 'Marketing', designation: 'Content Marketer', count: 1, level: 0 },
+  { department: 'Marketing', designation: 'Growth Marketer', count: 1, level: 0 },
+  { department: 'Marketing', designation: 'Marketing Manager', count: 1, level: 2 },
+  { department: 'People Ops', designation: 'HR Generalist', count: 2, level: 0 },
+  { department: 'People Ops', designation: 'Talent Acquisition Specialist', count: 1, level: 0 },
+  { department: 'People Ops', designation: 'People Ops Coordinator', count: 1, level: 0 },
+  { department: 'People Ops', designation: 'HR Manager', count: 1, level: 2 },
+  { department: 'Finance', designation: 'Accountant', count: 2, level: 0 },
+  { department: 'Finance', designation: 'Financial Analyst', count: 1, level: 1 },
+  { department: 'Finance', designation: 'Finance Manager', count: 1, level: 2 },
+]
+
+// Sanity check against orgStructure's canonical list — every designation used above must be
+// one it actually offers, so the roster never drifts from what "Add employee" can produce.
+for (const r of ROLE_PLAN) {
+  if (!DESIGNATIONS_BY_DEPARTMENT[r.department].includes(r.designation)) {
+    throw new Error(`mock.ts ROLE_PLAN references an unknown designation: ${r.department} / ${r.designation}`)
+  }
+}
+
+const ROLES = ROLE_PLAN.flatMap((r) => Array.from({ length: r.count }, () => r))
+
+const NAMES = [
+  'Aarav Sharma', 'Vivaan Gupta', 'Aditya Verma', 'Vihaan Mehta', 'Arjun Nair',
+  'Sai Reddy', 'Reyansh Iyer', 'Krishna Rao', 'Ishaan Kapoor', 'Rohan Malhotra',
+  'Kabir Singh', 'Aryan Chauhan', 'Dhruv Rathore', 'Yash Thakur', 'Karan Bose',
+  'Rahul Deshmukh', 'Amit Patil', 'Suresh Kulkarni', 'Nikhil Shinde', 'Varun Jadhav',
+  'Aakash Bansal', 'Siddharth Agarwal', 'Rajesh Khanna', 'Vikram Sethi', 'Om Prakash Yadav',
+  'Deepak Choudhary', 'Manoj Tiwari', 'Ravi Pillai', 'Ganesh Iyer', 'Arun Krishnan',
+  'Ananya Iyengar', 'Diya Menon', 'Saanvi Pillai', 'Aadhya Krishnan', 'Myra Bhatt',
+  'Anika Joshi', 'Navya Chatterjee', 'Kiara Banerjee', 'Riya Mukherjee', 'Ishita Sengupta',
+  'Meera Pillai', 'Priya Nambiar', 'Sneha Subramaniam', 'Divya Krishnamurthy', 'Pooja Venkatesh',
+  'Neha Kaur', 'Simran Gill', 'Harpreet Sandhu', 'Kavya Ramesh', 'Tanvi Desai',
+] as const
+
+if (NAMES.length !== ROLES.length) {
+  throw new Error(`mock.ts: NAMES (${NAMES.length}) and ROLES (${ROLES.length}) must be the same length`)
+}
+
+const CITIES = [
+  { city: 'Bengaluru', pin: '560025' },
+  { city: 'Mumbai', pin: '400051' },
+  { city: 'Pune', pin: '411014' },
+  { city: 'Hyderabad', pin: '500081' },
+  { city: 'Chennai', pin: '600042' },
+  { city: 'Gurugram', pin: '122002' },
+  { city: 'Noida', pin: '201301' },
+  { city: 'Kolkata', pin: '700091' },
+  { city: 'Ahmedabad', pin: '380015' },
+]
+
+function slugEmail(name: string): string {
+  const parts = name.toLowerCase().split(' ')
+  return `${parts[0]}.${parts[parts.length - 1]}@dayflow.dev`
+}
+
+// Tenure by level: managers have been around longest, then senior ICs, then ICs — a real
+// company's seniority roughly tracks time-in-seat.
+function joinDateFor(rand: () => number, level: 0 | 1 | 2): Date {
+  const [minDays, maxDays] = level === 2 ? [730, 1460] : level === 1 ? [365, 1095] : [20, 730]
+  const daysAgo = Math.round(minDays + rand() * (maxDays - minDays))
+  const d = new Date()
+  d.setDate(d.getDate() - daysAgo)
+  return d
+}
+
+const LEVEL_SALARY_RANGE: Record<0 | 1 | 2, [number, number]> = {
+  0: [45000, 72000],
+  1: [78000, 115000],
+  2: [125000, 165000],
 }
 
 interface MockUser extends Employee {
   password: string
 }
 
-const employees: MockUser[] = NAMES.map((name, i) => ({
-  id: uid('emp', i + 1),
-  employeeId: `EMP-00${i + 1}`,
-  email: `employee${i + 1}@dayflow.dev`,
-  role: 'EMPLOYEE',
-  name,
-  phone: `+91 98${String(10000000 + i * 137).slice(0, 8)}`,
-  address: `${12 + i} Residency Road, Bengaluru 560025`,
-  photoUrl: null,
-  jobTitle: JOB_TITLES[i % JOB_TITLES.length],
-  department: DEPARTMENTS[i % DEPARTMENTS.length],
-  emailVerified: true,
-  mustChangePassword: false,
-  createdAt: `202${2 + (i % 3)}-0${(i % 9) + 1}-1${i % 9}T09:00:00Z`,
-  password: 'Password123',
-}))
+const employees: MockUser[] = NAMES.map((name, i) => {
+  const role = ROLES[i]
+  const rand = rngFor(i + 1)
+  const place = CITIES[i % CITIES.length]
+  const phoneDigits = String(6 + (i % 4)) + String(100000000 + Math.floor(rand() * 899999999)).slice(0, 9)
+  return {
+    id: uid('emp', i + 1),
+    employeeId: uid('EMP', i + 1),
+    email: slugEmail(name),
+    role: 'EMPLOYEE',
+    name,
+    phone: `+91 ${phoneDigits}`,
+    address: `${20 + i} ${['MG Road', 'Park Street', 'Church Street', 'Residency Road', 'Brigade Road'][i % 5]}, ${place.city} ${place.pin}`,
+    photoUrl: null,
+    jobTitle: role.designation,
+    department: role.department,
+    emailVerified: true,
+    mustChangePassword: false,
+    createdAt: joinDateFor(rand, role.level).toISOString(),
+    password: 'Password123',
+  }
+})
 
 const admin: MockUser = {
   id: 'emp-0000',
-  employeeId: 'EMP-000',
+  employeeId: 'EMP-0000',
   email: 'admin@dayflow.dev',
   role: 'HR_ADMIN',
   name: 'Ava Admin',
@@ -76,34 +172,41 @@ function deriveStatus(checkIn: string | null, checkOut: string | null): Attendan
   return hours < 4 ? 'HALF_DAY' : 'PRESENT'
 }
 
-function seedAttendance(employeeId: string, days: number): Attendance[] {
+// Nobody has attendance before their join date, and Mondays/Fridays skew slightly more
+// absent than midweek — both true of real offices, neither true of the old flat random roll.
+function seedAttendance(employee: MockUser, days: number): Attendance[] {
   const out: Attendance[] = []
-  const seedBase = employeeId.charCodeAt(employeeId.length - 1)
+  const rand = rngFor(employee.employeeId.charCodeAt(employee.employeeId.length - 1) + days)
+  const joinedAt = new Date(employee.createdAt)
+  joinedAt.setHours(0, 0, 0, 0)
+
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     d.setDate(d.getDate() - i)
-    const isWeekend = d.getDay() === 0 || d.getDay() === 6
-    if (isWeekend) continue // no row is created for weekends -> renders as NO_RECORD
+    if (d < joinedAt) continue // not hired yet
+    const dow = d.getDay()
+    if (dow === 0 || dow === 6) continue // no row is created for weekends -> renders as NO_RECORD
 
     const date = toISODate(d)
-    const roll = (seedBase * 7 + i * 13) % 10
     const isToday = i === 0
+    const absenceChance = dow === 1 || dow === 5 ? 0.09 : 0.04
 
-    if (roll === 0 && !isToday) {
-      out.push({ id: uid('att', out.length + 1), employeeId, date, checkIn: null, checkOut: null, status: 'ABSENT' })
+    if (!isToday && rand() < absenceChance) {
+      out.push({ id: uid('att', out.length + 1), employeeId: employee.id, date, checkIn: null, checkOut: null, status: 'ABSENT' })
       continue
     }
 
     const checkIn = new Date(d)
-    checkIn.setHours(9, roll * 3, 0, 0)
-    const hours = roll === 1 ? 3 : 8 + (roll % 3) * 0.5
+    checkIn.setHours(9, Math.floor(rand() * 45), 0, 0)
+    const isHalfDay = !isToday && rand() < 0.06
+    const hours = isHalfDay ? 3 + rand() : 8 + rand() * 1.5
     const checkOutDate = new Date(checkIn.getTime() + hours * 3600_000)
     const checkOut = isToday ? null : checkOutDate.toISOString()
 
     out.push({
       id: uid('att', out.length + 1),
-      employeeId,
+      employeeId: employee.id,
       date,
       checkIn: checkIn.toISOString(),
       checkOut,
@@ -114,42 +217,13 @@ function seedAttendance(employeeId: string, days: number): Attendance[] {
 }
 
 const attendance = new Map<string, Attendance[]>()
-for (const e of allUsers) attendance.set(e.id, seedAttendance(e.id, 30))
+for (const e of allUsers) attendance.set(e.id, seedAttendance(e, 30))
 
-function daysFromNow(n: number) {
+function daysFromToday(n: number) {
   const d = new Date()
   d.setDate(d.getDate() + n)
   return toISODate(d)
 }
-
-let leaveSeq = 100
-const leave: Leave[] = (
-  [
-    { emp: 1, type: 'PAID', from: 3, to: 5, status: 'PENDING', remarks: 'Family wedding in Kochi.' },
-    { emp: 2, type: 'SICK', from: -2, to: -2, status: 'APPROVED', remarks: 'Fever, seen by a doctor.' },
-    { emp: 3, type: 'UNPAID', from: 10, to: 14, status: 'PENDING', remarks: 'Personal travel.' },
-    { emp: 4, type: 'PAID', from: -8, to: -6, status: 'REJECTED', remarks: 'Short notice trip.' },
-    { emp: 5, type: 'SICK', from: 1, to: 2, status: 'PENDING', remarks: 'Minor surgery, day care.' },
-  ] as const
-).map(({ emp, type, from, to, status, remarks }) => {
-  const e = employees[emp]
-  return {
-    id: uid('lv', ++leaveSeq),
-    employeeId: e.id,
-    type: type as Leave['type'],
-    startDate: daysFromNow(from),
-    endDate: daysFromNow(to),
-    remarks,
-    status: status as LeaveStatus,
-    decisionById: status === 'PENDING' ? null : admin.id,
-    comment:
-      status === 'APPROVED' ? 'Get well soon.' : status === 'REJECTED' ? 'Team is short-staffed that week.' : null,
-    createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-  }
-})
-
-// Approved leave already landed as LEAVE rows in attendance, mirroring leaveService.decide.
-for (const l of leave.filter((l) => l.status === 'APPROVED')) markLeaveAttendance(l)
 
 function markLeaveAttendance(l: Leave) {
   const rows = attendance.get(l.employeeId) ?? []
@@ -165,27 +239,106 @@ function markLeaveAttendance(l: Leave) {
   attendance.set(l.employeeId, rows)
 }
 
+const LEAVE_REMARKS: Record<LeaveType, string[]> = {
+  PAID: ['Family wedding out of town.', 'Personal travel, booked in advance.', 'Attending a family function.', 'Moving apartments this week.'],
+  SICK: ['Fever and body ache.', 'Dental procedure, recovering at home.', 'Down with seasonal flu.', 'Follow-up doctor visit.'],
+  UNPAID: ['Extended personal travel.', 'Family emergency back home.', 'Personal reasons.', 'Passport renewal, out of station.'],
+}
+
+const APPROVE_COMMENTS = ['Approved, get well soon.', 'Approved, enjoy the trip.', 'Approved — go ahead.', 'Sure, have a good one.']
+const REJECT_COMMENTS = [
+  'Team is short-staffed that week — can we look at alternate dates?',
+  'Clashes with the release freeze, let’s reschedule.',
+  'Too many overlapping requests already approved that week.',
+]
+
+let leaveSeq = 100
+const leave: Leave[] = []
+
+// Roughly 4 in 10 employees have an active or recent leave history — not everyone requests
+// leave in any given window, which is itself realistic.
+for (let i = 0; i < employees.length; i++) {
+  const rand = rngFor(i * 31 + 7)
+  if (rand() >= 0.44) continue
+
+  const e = employees[i]
+  const type: LeaveType = rand() < 0.45 ? 'PAID' : rand() < 0.7 ? 'SICK' : 'UNPAID'
+  const duration = type === 'SICK' ? 1 + (rand() < 0.2 ? 1 : 0) : 1 + Math.floor(rand() * 4)
+
+  // 15%: further back, into last year, always already decided — gives the year filter
+  // something to actually filter. 60%: recent past, decided. 25%: near future, pending.
+  const bucket = rand()
+  let startOffset: number
+  let status: LeaveStatus
+  if (bucket < 0.15) {
+    startOffset = -(200 + Math.floor(rand() * 200))
+    status = rand() < 0.75 ? 'APPROVED' : 'REJECTED'
+  } else if (bucket < 0.75) {
+    startOffset = -(1 + Math.floor(rand() * 55))
+    status = rand() < 0.7 ? 'APPROVED' : 'REJECTED'
+  } else {
+    startOffset = 1 + Math.floor(rand() * 21)
+    status = 'PENDING'
+  }
+
+  const startDate = daysFromToday(startOffset)
+  const endDate = daysFromToday(startOffset + duration - 1)
+  const createdAt = new Date()
+  createdAt.setDate(createdAt.getDate() + Math.min(startOffset, -1))
+
+  const row: Leave = {
+    id: uid('lv', ++leaveSeq),
+    employeeId: e.id,
+    type,
+    startDate,
+    endDate,
+    remarks: pick(rand, LEAVE_REMARKS[type]),
+    status,
+    decisionById: status === 'PENDING' ? null : admin.id,
+    comment: status === 'APPROVED' ? pick(rand, APPROVE_COMMENTS) : status === 'REJECTED' ? pick(rand, REJECT_COMMENTS) : null,
+    createdAt: createdAt.toISOString(),
+  }
+  leave.push(row)
+  if (status === 'APPROVED') markLeaveAttendance(row)
+}
+leave.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+
 const payroll = new Map<string, Payroll[]>()
 for (const [i, e] of allUsers.entries()) {
-  const base = 60000 + i * 8500
-  payroll.set(e.id, [
+  const level = i === 0 ? 2 : ROLES[i - 1].level // index 0 is admin
+  const rand = rngFor(i * 17 + 3)
+  const [minSalary, maxSalary] = LEVEL_SALARY_RANGE[level]
+  const base = Math.round((minSalary + rand() * (maxSalary - minSalary)) / 500) * 500
+
+  const joinedAt = new Date(e.createdAt)
+  const tenureDays = Math.floor((Date.now() - joinedAt.getTime()) / 86400000)
+  const rows: Payroll[] = [
     {
       id: uid('pay', i * 2 + 1),
       employeeId: e.id,
       baseSalary: base.toFixed(2),
-      effectiveDate: '2024-04-01',
+      effectiveDate: toISODate(joinedAt),
       createdById: admin.id,
-      createdAt: '2024-03-28T10:00:00Z',
+      createdAt: e.createdAt,
     },
-    {
+  ]
+
+  // Only employees with a year or more of tenure have earned an annual increment.
+  if (tenureDays > 365) {
+    const raiseDate = new Date(joinedAt)
+    raiseDate.setFullYear(raiseDate.getFullYear() + 1)
+    const raised = Math.round((base * (1.08 + rand() * 0.07)) / 500) * 500
+    rows.push({
       id: uid('pay', i * 2 + 2),
       employeeId: e.id,
-      baseSalary: Math.round(base * 1.12).toFixed(2),
-      effectiveDate: '2025-04-01',
+      baseSalary: raised.toFixed(2),
+      effectiveDate: toISODate(raiseDate),
       createdById: admin.id,
-      createdAt: '2025-03-27T10:00:00Z',
-    },
-  ])
+      createdAt: raiseDate.toISOString(),
+    })
+  }
+
+  payroll.set(e.id, rows)
 }
 
 function fail(code: string, message: string): never {
@@ -264,7 +417,7 @@ export async function mockRequest<T>(
     }
     allUsers.push(user)
     employees.push(user)
-    attendance.set(user.id, seedAttendance(user.id, 30))
+    attendance.set(user.id, seedAttendance(user, 30))
     payroll.set(user.id, [])
     return { employee: strip(user), tempPassword } as T
   }

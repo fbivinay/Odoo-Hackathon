@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom'
 import { CalendarDays, CalendarRange, ChartColumn, Users } from 'lucide-react'
+import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { KpiCard } from '@/components/tremor/KpiCard'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -51,7 +52,12 @@ export function AdminDashboard() {
                   <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
                     <div>
                       <p className="text-sm">
-                        {l.employee.name} <LeaveTypePill type={l.type} />
+                        <EmployeeQuickView employeeId={l.employee.id}>
+                          <button type="button" className="font-medium hover:underline">
+                            {l.employee.name}
+                          </button>
+                        </EmployeeQuickView>{' '}
+                        <LeaveTypePill type={l.type} />
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {formatDate(l.startDate)} – {formatDate(l.endDate)}
