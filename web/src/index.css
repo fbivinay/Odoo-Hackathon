@@ -125,6 +125,11 @@
     }
   html {
     @apply font-sans;
+    /* 125% scale via root font-size, not `zoom` — `zoom` breaks Radix/floating-ui's
+       getBoundingClientRect-based popover positioning (calendars, selects, filter menus
+       render off-screen). Tailwind's spacing/type scale is rem-based, so this scales the
+       whole UI proportionally while keeping normal layout math intact. */
+    font-size: 20px;
     }
 }
 /* Design tokens per architecture spec 8.2: zinc neutral, single indigo accent, Inter, 8px radius */
