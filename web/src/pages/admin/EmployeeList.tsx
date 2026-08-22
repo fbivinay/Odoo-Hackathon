@@ -53,7 +53,6 @@ interface InviteResult {
 
 function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
   const [open, setOpen] = useState(false)
-  const [employeeId, setEmployeeId] = useState('')
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<Role>('EMPLOYEE')
@@ -65,7 +64,6 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
   const [result, setResult] = useState<InviteResult | null>(null)
 
   function reset() {
-    setEmployeeId('')
     setEmail('')
     setName('')
     setRole('EMPLOYEE')
@@ -93,7 +91,6 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
       const data = await api<InviteResult>('/admin/employees/invite', {
         method: 'POST',
         body: {
-          employeeId,
           email,
           name,
           role,
@@ -168,8 +165,8 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
             <form className="space-y-4" onSubmit={onSubmit}>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="employeeId">Employee ID</Label>
-                  <Input id="employeeId" value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} required />
+                  <Label htmlFor="name">Full name</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="role">Role</Label>
@@ -183,10 +180,6 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="name">Full name</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="email">Email</Label>
