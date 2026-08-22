@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
+import { Logo } from '@/components/Logo'
 import { useSession } from '@/auth/session'
 import { ApiError } from '@/lib/api'
 
@@ -56,8 +57,8 @@ export function SignIn() {
         />
 
         <div className="relative flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-sm font-semibold">
-            D
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-600 text-white">
+            <Logo className="size-4.5" />
           </div>
           <span className="text-base font-medium">Dayflow</span>
         </div>
@@ -92,8 +93,8 @@ export function SignIn() {
         <div className="w-full max-w-sm space-y-8">
           <div className="space-y-1.5 lg:hidden">
             <div className="flex items-center gap-2">
-              <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-[11px] font-semibold text-white">
-                D
+              <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white">
+                <Logo className="size-3.5" />
               </div>
               <span className="text-sm font-medium">Dayflow</span>
             </div>

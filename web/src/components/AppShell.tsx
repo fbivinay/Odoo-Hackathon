@@ -10,6 +10,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { useState } from 'react'
+import { Logo } from '@/components/Logo'
 import { useSession } from '@/auth/session'
 import { Button } from '@/components/ui/button'
 import {
@@ -57,8 +58,8 @@ export function AppShell() {
     <div className="flex min-h-screen bg-zinc-50">
       <aside className="fixed inset-y-0 left-0 hidden w-60 flex-col border-r border-border bg-white md:flex">
         <div className="flex h-14 items-center gap-2 border-b border-border px-5">
-          <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-[11px] font-semibold text-white">
-            D
+          <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white">
+            <Logo className="size-3.5" />
           </div>
           <div className="leading-tight">
             <p className="text-sm font-medium">Dayflow</p>

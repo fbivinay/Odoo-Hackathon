@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Label } from '@/components/ui/label'
 import { PasswordInput } from '@/components/ui/password-input'
+import { Logo } from '@/components/Logo'
 import { useSession } from '@/auth/session'
 import { ApiError } from '@/lib/api'
 
@@ -41,8 +42,8 @@ export function ChangePassword() {
       <Card className="w-full max-w-sm shadow-sm">
         <CardHeader>
           <div className="mb-1 flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-[11px] font-semibold text-white">
-              D
+            <div className="flex h-6 w-6 items-center justify-center rounded bg-indigo-600 text-white">
+              <Logo className="size-3.5" />
             </div>
             <span className="text-sm font-medium">Dayflow</span>
           </div>
