@@ -41,9 +41,10 @@ export const STATUS_META: Record<DisplayStatus, { label: string; bar: string; pi
 }
 
 // Today's check-in-without-checkout is a client-only display state — the API's
-// AttendanceStatus enum has no IN_PROGRESS value. A missing row for today is only "absent"
-// once that employee's shift has actually started — pass shift + workDateISO to tell the
-// difference from a shift that just hasn't begun yet.
+// AttendanceStatus enum has no IN_PROGRESS value. A missing row for today reads as:
+// - shift hasn't started yet -> "not started" (UPCOMING)
+// - shift has started/ended with nobody checked in -> "absent" (a real, actionable status,
+//   not a blank cell — this is what makes an empty attendance day mean something on the grid)
 export function displayStatus(
   record: { checkIn: string | null; checkOut: string | null; status: string } | null,
   isToday: boolean,
@@ -51,7 +52,11 @@ export function displayStatus(
   workDateISO?: string,
 ): DisplayStatus {
   if (!record) {
-    if (isToday && workDateISO && shiftPhaseFor(shift ?? null, workDateISO) === 'UPCOMING') return 'UPCOMING'
+    if (isToday && workDateISO) {
+      const phase = shiftPhaseFor(shift ?? null, workDateISO)
+      if (phase === 'UPCOMING') return 'UPCOMING'
+      if (phase === 'ACTIVE' || phase === 'ENDED') return 'ABSENT'
+    }
     return 'NO_RECORD'
   }
   if (isToday && record.checkIn && !record.checkOut) return 'IN_PROGRESS'
