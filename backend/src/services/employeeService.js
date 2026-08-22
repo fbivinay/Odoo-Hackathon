@@ -35,6 +35,7 @@ const PUBLIC_FIELDS = {
   jobTitle: true,
   department: true,
   emailVerified: true,
+  mustChangePassword: true,
   createdAt: true,
 };
 

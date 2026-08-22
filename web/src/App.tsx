@@ -4,8 +4,7 @@ import { ProtectedRoute } from '@/auth/ProtectedRoute'
 import { SessionProvider } from '@/auth/session'
 import { AppShell } from '@/components/AppShell'
 import { SignIn } from '@/pages/auth/SignIn'
-import { SignUp } from '@/pages/auth/SignUp'
-import { VerifyEmail } from '@/pages/auth/VerifyEmail'
+import { ChangePassword } from '@/pages/auth/ChangePassword'
 import { Dashboard } from '@/pages/Dashboard'
 import { Profile } from '@/pages/Profile'
 import { Attendance } from '@/pages/Attendance'
@@ -23,10 +22,9 @@ export default function App() {
       <SessionProvider>
         <Routes>
           <Route path="/sign-in" element={<SignIn />} />
-          <Route path="/sign-up" element={<SignUp />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
 
           <Route element={<ProtectedRoute />}>
+            <Route path="/change-password" element={<ChangePassword />} />
             <Route element={<AppShell />}>
               <Route path="/" element={<Dashboard />} />
               <Route path="/attendance" element={<Attendance />} />

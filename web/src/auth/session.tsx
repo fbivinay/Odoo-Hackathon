@@ -3,18 +3,11 @@ import { api, ApiError } from '@/lib/api'
 import { clearToken, decodeToken, getToken, setToken } from '@/lib/token'
 import type { AuthResponse, Employee } from '@/types'
 
-interface SignUpInput {
-  employeeId: string
-  email: string
-  password: string
-  name: string
-}
-
 interface SessionValue {
   employee: Employee | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (input: SignUpInput) => Promise<void>
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>
   signOut: () => void
   refresh: () => Promise<void>
 }
@@ -59,8 +52,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setToken(token)
         await refresh()
       },
-      async signUp(input) {
-        await api('/auth/signup', { method: 'POST', body: input })
+      async changePassword(currentPassword, newPassword) {
+        await api('/me/password', { method: 'PATCH', body: { currentPassword, newPassword } })
+        await refresh()
       },
       signOut() {
         clearToken()
