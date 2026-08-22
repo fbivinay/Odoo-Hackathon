@@ -5,14 +5,25 @@ const asyncHandler = require('../middleware/asyncHandler');
 const { requireAuth } = require('../middleware/auth');
 const employeeService = require('../services/employeeService');
 const { selfEditSchema } = require('../validators/employeeValidators');
+const { badRequest } = require('../lib/errors');
 
 const router = Router();
+
+const ALLOWED_MIME_TO_EXT = {
+  'image/jpeg': '.jpg',
+  'image/png': '.png',
+  'image/webp': '.webp',
+};
 
 const upload = multer({
   dest: path.join(__dirname, '..', '..', 'uploads'),
   limits: { fileSize: 2 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype.startsWith('image/')) return cb(new Error('Only image uploads are allowed'));
+    // Raster-only allowlist — SVG is deliberately excluded, it can embed
+    // <script>/onload and would execute as stored XSS when opened from /uploads.
+    if (!ALLOWED_MIME_TO_EXT[file.mimetype]) {
+      return cb(badRequest('Only JPEG, PNG, or WEBP images are allowed'));
+    }
     cb(null, true);
   },
 });
