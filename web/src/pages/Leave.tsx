@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { CalendarPlus } from 'lucide-react'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
+import { DatePicker } from '@/components/DatePicker'
 import { EmptyState } from '@/components/EmptyState'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -103,27 +104,11 @@ export function Leave() {
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="startDate">From</Label>
-                    <input
-                      id="startDate"
-                      type="date"
-                      value={startDate}
-                      min={today}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      required
-                    />
+                    <DatePicker id="startDate" value={startDate} onChange={setStartDate} min={today} />
                   </div>
                   <div className="space-y-1.5">
                     <Label htmlFor="endDate">To</Label>
-                    <input
-                      id="endDate"
-                      type="date"
-                      value={endDate}
-                      min={startDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                      required
-                    />
+                    <DatePicker id="endDate" value={endDate} onChange={setEndDate} min={startDate} />
                   </div>
                 </div>
                 <p className="text-xs text-muted-foreground">

@@ -33,7 +33,7 @@ import {
   type DayRoll,
 } from '@/lib/analytics'
 import { downloadCSV, toCSV } from '@/lib/csv'
-import { formatDayMonth, toISODate } from '@/lib/format'
+import { asISODate, formatDayMonth, toISODate } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
 import type { AdminAttendanceRow, AdminLeaveRow, Employee } from '@/types'
 
@@ -98,8 +98,18 @@ export function Analytics() {
   const leave = useApi<AdminLeaveRow[]>('/admin/leave')
 
   const roster = useMemo(() => employees.data ?? [], [employees.data])
-  const leaves = useMemo(() => leave.data ?? [], [leave.data])
+  const allLeaves = useMemo(() => leave.data ?? [], [leave.data])
   const { byDate, rolls, loading: attLoading } = useAttendanceWindow(days, roster.length)
+
+  // The day-window selector drives the whole page, not just the chart — leave
+  // requests are included if they overlap the selected window at all, so the
+  // pending/approval/type/department numbers below stay consistent with it.
+  const windowStart = rolls[0]?.date ?? toISODate(new Date())
+  const windowEnd = toISODate(new Date())
+  const leaves = useMemo(
+    () => allLeaves.filter((l) => asISODate(l.endDate) >= windowStart && asISODate(l.startDate) <= windowEnd),
+    [allLeaves, windowStart, windowEnd],
+  )
 
   const rate = attendanceRate(rolls)
   const approval = approvalRate(leaves)
@@ -118,7 +128,7 @@ export function Analytics() {
 
   function exportAttendance() {
     downloadCSV(
-      `attendance-${toISODate(new Date())}`,
+      `attendance-last-${days}d-${toISODate(new Date())}`,
       toCSV(rolls, [
         { header: 'Date', value: (r) => r.date },
         { header: 'Present', value: (r) => r.present },
@@ -131,7 +141,7 @@ export function Analytics() {
 
   function exportLeave() {
     downloadCSV(
-      `leave-requests-${toISODate(new Date())}`,
+      `leave-requests-last-${days}d-${toISODate(new Date())}`,
       toCSV(leaves, [
         { header: 'Employee', value: (l) => l.employee.name },
         { header: 'Employee ID', value: (l) => l.employee.employeeId },
@@ -146,40 +156,34 @@ export function Analytics() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-medium">Analytics</h2>
           <p className="text-xs text-muted-foreground">
-            Attendance and leave across the organisation.
+            Attendance and leave across the organisation, over the selected window.
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
-            <SelectTrigger size="sm" className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {WINDOWS.map((w) => (
-                <SelectItem key={w} value={String(w)}>
-                  Last {w} days
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="outline" onClick={exportAttendance} disabled={rolls.length === 0}>
-            <Download className="size-4" />
-            Export
-          </Button>
-        </div>
+        <Select value={String(days)} onValueChange={(v) => setDays(Number(v))}>
+          <SelectTrigger size="sm" className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {WINDOWS.map((w) => (
+              <SelectItem key={w} value={String(w)}>
+                Last {w} days
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Headcount" value={roster.length} loading={loading} />
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <KpiCard label="Headcount" value={roster.length} hint="Active employees, all-time" loading={loading} />
         <KpiCard
           label="Attendance rate"
           value={`${rate}%`}
-          hint={`Working days, last ${days}`}
+          hint={`Present + half-day, last ${days}d`}
           loading={attLoading}
         />
         <KpiCard label="Leave pending" value={pending} hint="Awaiting a decision" loading={loading} />
@@ -191,101 +195,66 @@ export function Analytics() {
         />
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Attendance by day</CardTitle>
-          <p className="text-xs text-muted-foreground">
-            Weekends show only where someone has an actual record — no absences are inferred.
-          </p>
-        </CardHeader>
-        <CardContent>
-          {attLoading ? (
-            <Skeleton className="h-64 w-full" />
-          ) : (
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
-                  <XAxis
-                    dataKey="label"
-                    tick={{ fontSize: 11, fill: '#71717b' }}
-                    tickLine={false}
-                    axisLine={{ stroke: '#e4e4e7' }}
-                    interval="preserveStartEnd"
-                  />
-                  <YAxis
-                    tick={{ fontSize: 11, fill: '#71717b' }}
-                    tickLine={false}
-                    axisLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      fontSize: 12,
-                      borderRadius: 8,
-                      border: '1px solid #e4e4e7',
-                      boxShadow: '0 1px 2px rgb(0 0 0 / 0.05)',
-                    }}
-                  />
-                  <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
-                  {SERIES.map((s) => (
-                    <Bar
-                      key={s.key}
-                      dataKey={s.key}
-                      name={s.label}
-                      stackId="a"
-                      fill={s.color}
-                      radius={s.key === 'absent' ? [2, 2, 0, 0] : undefined}
-                    />
-                  ))}
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">Attendance</h3>
+            <p className="text-xs text-muted-foreground">Last {days} days.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={exportAttendance} disabled={rolls.length === 0}>
+            <Download className="size-4" />
+            Export
+          </Button>
+        </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
         <Card className="shadow-sm">
-          <CardHeader className="flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base">Leave days by type</CardTitle>
-            <Button size="sm" variant="ghost" onClick={exportLeave} disabled={leaves.length === 0}>
-              <Download className="size-4" />
-              Export
-            </Button>
+          <CardHeader>
+            <CardTitle className="text-base">Attendance by day</CardTitle>
+            <p className="text-xs text-muted-foreground">
+              Weekends show only where someone has an actual record — no absences are inferred.
+            </p>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-56 w-full" />
-            ) : pieData.length === 0 ? (
-              <EmptyState icon={TriangleAlert} line="No leave requests recorded yet." />
+            {attLoading ? (
+              <Skeleton className="h-64 w-full" />
             ) : (
-              <div className="h-56 w-full">
+              <div className="h-64 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={pieData}
-                      dataKey="value"
-                      nameKey="name"
-                      innerRadius={52}
-                      outerRadius={80}
-                      paddingAngle={2}
-                      stroke="none"
-                    >
-                      {pieData.map((d) => (
-                        <Cell key={d.key} fill={TYPE_COLORS[d.key]} />
-                      ))}
-                    </Pie>
+                  <BarChart data={chartData} margin={{ top: 4, right: 4, bottom: 0, left: -20 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e4e4e7" vertical={false} />
+                    <XAxis
+                      dataKey="label"
+                      tick={{ fontSize: 11, fill: '#71717b' }}
+                      tickLine={false}
+                      axisLine={{ stroke: '#e4e4e7' }}
+                      interval="preserveStartEnd"
+                    />
+                    <YAxis
+                      tick={{ fontSize: 11, fill: '#71717b' }}
+                      tickLine={false}
+                      axisLine={false}
+                      allowDecimals={false}
+                    />
                     <Tooltip
-                      formatter={(v) => [`${v} days`, '']}
                       contentStyle={{
                         fontSize: 12,
                         borderRadius: 8,
                         border: '1px solid #e4e4e7',
+                        boxShadow: '0 1px 2px rgb(0 0 0 / 0.05)',
                       }}
                     />
-                    <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
-                  </PieChart>
+                    <Legend wrapperStyle={{ fontSize: 12, paddingTop: 8 }} iconType="circle" iconSize={8} />
+                    {SERIES.map((s) => (
+                      <Bar
+                        key={s.key}
+                        dataKey={s.key}
+                        name={s.label}
+                        stackId="a"
+                        fill={s.color}
+                        radius={s.key === 'absent' ? [2, 2, 0, 0] : undefined}
+                      />
+                    ))}
+                  </BarChart>
                 </ResponsiveContainer>
               </div>
             )}
@@ -322,7 +291,85 @@ export function Analytics() {
             )}
           </CardContent>
         </Card>
+      </section>
 
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">Leave</h3>
+            <p className="text-xs text-muted-foreground">Requests overlapping the last {days} days.</p>
+          </div>
+          <Button size="sm" variant="outline" onClick={exportLeave} disabled={leaves.length === 0}>
+            <Download className="size-4" />
+            Export
+          </Button>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Leave days by type</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-56 w-full" />
+              ) : pieData.length === 0 ? (
+                <EmptyState icon={TriangleAlert} line="No leave requests in this window." />
+              ) : (
+                <div className="h-56 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={pieData}
+                        dataKey="value"
+                        nameKey="name"
+                        innerRadius={52}
+                        outerRadius={80}
+                        paddingAngle={2}
+                        stroke="none"
+                      >
+                        {pieData.map((d) => (
+                          <Cell key={d.key} fill={TYPE_COLORS[d.key]} />
+                        ))}
+                      </Pie>
+                      <Tooltip
+                        formatter={(v) => [`${v} days`, '']}
+                        contentStyle={{
+                          fontSize: 12,
+                          borderRadius: 8,
+                          border: '1px solid #e4e4e7',
+                        }}
+                      />
+                      <Legend wrapperStyle={{ fontSize: 12 }} iconType="circle" iconSize={8} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-base">Approved leave days by department</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <Skeleton className="h-32 w-full" />
+              ) : deptLeave.length === 0 ? (
+                <EmptyState icon={TriangleAlert} line="No approved leave in this window." />
+              ) : (
+                <BarList data={deptLeave} valueFormatter={(n) => `${n}d`} />
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </section>
+
+      <section className="space-y-4">
+        <div>
+          <h3 className="text-sm font-medium">Team</h3>
+          <p className="text-xs text-muted-foreground">Current org structure, not time-scoped.</p>
+        </div>
         <Card className="shadow-sm">
           <CardHeader>
             <CardTitle className="text-base">Headcount by department</CardTitle>
@@ -337,22 +384,7 @@ export function Analytics() {
             )}
           </CardContent>
         </Card>
-
-        <Card className="shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-base">Approved leave days by department</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {loading ? (
-              <Skeleton className="h-32 w-full" />
-            ) : deptLeave.length === 0 ? (
-              <EmptyState icon={TriangleAlert} line="No approved leave yet." />
-            ) : (
-              <BarList data={deptLeave} valueFormatter={(n) => `${n}d`} />
-            )}
-          </CardContent>
-        </Card>
-      </div>
+      </section>
     </div>
   )
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Copy, Download, Search, UserPlus, Users, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Download, ListFilter, Search, UserPlus, Users, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,9 +13,11 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { DataTable } from '@/components/DataTable'
+import { DatePicker } from '@/components/DatePicker'
 import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ShiftStatBoxes } from '@/components/ShiftStatBoxes'
 import { downloadCSV, toCSV } from '@/lib/csv'
@@ -62,8 +64,15 @@ const columns: ColumnDef<Row, any>[] = [
   },
 ]
 
-function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
-  const [open, setOpen] = useState(false)
+function InviteEmployeeDialog({
+  onInvited,
+  open,
+  onOpenChange,
+}: {
+  onInvited: () => void
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
   const [role, setRole] = useState<Role>('EMPLOYEE')
@@ -129,7 +138,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
     <Dialog
       open={open}
       onOpenChange={(next) => {
-        setOpen(next)
+        onOpenChange(next)
         if (!next) reset()
       }}
     >
@@ -160,7 +169,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
               <Button
                 type="button"
                 onClick={() => {
-                  setOpen(false)
+                  onOpenChange(false)
                   reset()
                 }}
               >
@@ -268,7 +277,19 @@ export function EmployeeList() {
   const [salaryMax, setSalaryMax] = useState('')
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [inviteOpen, setInviteOpen] = useState(searchParams.get('invite') === '1')
   const debouncedSearch = useDebounced(search)
+
+  useEffect(() => {
+    if (searchParams.get('invite') === '1') {
+      setInviteOpen(true)
+      const next = new URLSearchParams(searchParams)
+      next.delete('invite')
+      setSearchParams(next, { replace: true })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const { data, loading, reload } = useApi<Employee[]>(
     `/admin/employees${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`,
@@ -316,14 +337,16 @@ export function EmployeeList() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const rows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
-  const filtersActive =
-    shiftFilter !== ALL ||
-    departmentFilter !== ALL ||
-    titleFilter !== ALL ||
-    joinedAfter !== '' ||
-    joinedBefore !== '' ||
-    salaryMin !== '' ||
-    salaryMax !== ''
+  const activeFilterCount = [
+    shiftFilter !== ALL,
+    departmentFilter !== ALL,
+    titleFilter !== ALL,
+    joinedAfter !== '',
+    joinedBefore !== '',
+    salaryMin !== '',
+    salaryMax !== '',
+  ].filter(Boolean).length
+  const filtersActive = activeFilterCount > 0
 
   function clearFilters() {
     setShiftFilter(ALL)
@@ -377,107 +400,116 @@ export function EmployeeList() {
               className="pl-8"
             />
           </div>
+
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1.5">
+                <ListFilter className="size-4" />
+                Filters
+                {activeFilterCount > 0 && (
+                  <Badge variant="secondary" className="ml-0.5 h-4 min-w-4 rounded-full px-1 text-[10px]">
+                    {activeFilterCount}
+                  </Badge>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80" align="end">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium">Filters</p>
+                {filtersActive && (
+                  <Button size="sm" variant="ghost" className="h-7 gap-1 px-2 text-xs" onClick={clearFilters}>
+                    <X className="size-3.5" />
+                    Clear
+                  </Button>
+                )}
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-3">
+                <div className="col-span-2 space-y-1">
+                  <Label className="text-xs text-muted-foreground">Shift</Label>
+                  <Select value={shiftFilter} onValueChange={setShiftFilter}>
+                    <SelectTrigger size="sm" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>All shifts</SelectItem>
+                      {SHIFTS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Department</Label>
+                  <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+                    <SelectTrigger size="sm" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>All departments</SelectItem>
+                      {DEPARTMENTS.map((d) => (
+                        <SelectItem key={d} value={d}>
+                          {d}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Title</Label>
+                  <Select value={titleFilter} onValueChange={setTitleFilter}>
+                    <SelectTrigger size="sm" className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={ALL}>All titles</SelectItem>
+                      {titleOptions.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {t}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Joined after</Label>
+                  <DatePicker value={joinedAfter} onChange={setJoinedAfter} placeholder="Any" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Joined before</Label>
+                  <DatePicker value={joinedBefore} onChange={setJoinedBefore} placeholder="Any" className="h-8 text-xs" />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Salary min</Label>
+                  <Input
+                    type="number"
+                    value={salaryMin}
+                    onChange={(e) => setSalaryMin(e.target.value)}
+                    placeholder="₹"
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Salary max</Label>
+                  <Input
+                    type="number"
+                    value={salaryMax}
+                    onChange={(e) => setSalaryMax(e.target.value)}
+                    placeholder="₹"
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+
           <Button size="sm" variant="outline" onClick={exportAll} disabled={filtered.length === 0}>
             <Download className="size-4" />
             Export
           </Button>
-          <InviteEmployeeDialog onInvited={reload} />
+          <InviteEmployeeDialog onInvited={reload} open={inviteOpen} onOpenChange={setInviteOpen} />
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Shift</Label>
-          <Select value={shiftFilter} onValueChange={setShiftFilter}>
-            <SelectTrigger size="sm" className="w-28">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All shifts</SelectItem>
-              {SHIFTS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Department</Label>
-          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
-            <SelectTrigger size="sm" className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All departments</SelectItem>
-              {DEPARTMENTS.map((d) => (
-                <SelectItem key={d} value={d}>
-                  {d}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Title</Label>
-          <Select value={titleFilter} onValueChange={setTitleFilter}>
-            <SelectTrigger size="sm" className="w-40">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL}>All titles</SelectItem>
-              {titleOptions.map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Joined after</Label>
-          <input
-            type="date"
-            value={joinedAfter}
-            onChange={(e) => setJoinedAfter(e.target.value)}
-            className="flex h-8 w-36 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Joined before</Label>
-          <input
-            type="date"
-            value={joinedBefore}
-            onChange={(e) => setJoinedBefore(e.target.value)}
-            className="flex h-8 w-36 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Salary min</Label>
-          <Input
-            type="number"
-            value={salaryMin}
-            onChange={(e) => setSalaryMin(e.target.value)}
-            placeholder="₹"
-            className="w-24"
-          />
-        </div>
-        <div className="space-y-1">
-          <Label className="text-[11px] text-muted-foreground">Salary max</Label>
-          <Input
-            type="number"
-            value={salaryMax}
-            onChange={(e) => setSalaryMax(e.target.value)}
-            placeholder="₹"
-            className="w-24"
-          />
-        </div>
-        {filtersActive && (
-          <Button size="sm" variant="ghost" onClick={clearFilters}>
-            <X className="size-3.5" />
-            Clear
-          </Button>
-        )}
       </div>
 
       <DataTable

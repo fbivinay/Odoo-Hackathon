@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react'
-import { CalendarDays } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { CalendarRange, ReceiptIndianRupee, UserPlus } from 'lucide-react'
+import { DatePicker } from '@/components/DatePicker'
 import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { ShiftStatBoxes, type ShiftMetric } from '@/components/ShiftStatBoxes'
@@ -10,12 +12,19 @@ import type { Shift } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import type { AdminAttendanceRow, AdminLeaveRow, Employee } from '@/types'
 
+const QUICK_ACTIONS = [
+  { to: '/admin/employees?invite=1', label: 'Add employee', icon: UserPlus },
+  { to: '/admin/leave', label: 'Review leave', icon: CalendarRange },
+  { to: '/admin/payroll', label: 'Run payroll', icon: ReceiptIndianRupee },
+]
+
 export function AdminDashboard() {
   const [date, setDate] = useState(toISODate(new Date()))
   const isToday = date === toISODate(new Date())
 
   const roster = useApi<Employee[]>('/admin/employees')
   const pendingLeave = useApi<AdminLeaveRow[]>('/admin/leave?status=PENDING')
+  const approvedLeave = useApi<AdminLeaveRow[]>('/admin/leave?status=APPROVED')
   const attendanceForDate = useApi<AdminAttendanceRow[]>(`/admin/attendance?date=${date}`, [date])
 
   const loading = roster.loading || pendingLeave.loading || attendanceForDate.loading
@@ -25,6 +34,12 @@ export function AdminDashboard() {
     for (const e of roster.data ?? []) map.set(e.id, e.shift as Shift | null)
     return map
   }, [roster.data])
+
+  const onLeaveToday = (approvedLeave.data ?? []).filter((l) => l.startDate <= date && date <= l.endDate)
+
+  const totalEmployees = (roster.data ?? []).length
+  const presentCount = (attendanceForDate.data ?? []).filter((r) => r.checkIn).length
+  const presentRate = totalEmployees > 0 ? presentCount / totalEmployees : 0
 
   const metricsForShift = (shift: Shift): ShiftMetric[] => {
     const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
@@ -39,6 +54,22 @@ export function AdminDashboard() {
     ]
   }
 
+  const rateForShift = (shift: Shift): number | null => {
+    const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
+    if (headcount === 0) return null
+    const present = (attendanceForDate.data ?? []).filter(
+      (r) => shiftById.get(r.employeeId) === shift && r.checkIn,
+    ).length
+    return present / headcount
+  }
+
+  const kpis = [
+    { label: 'Total employees', value: totalEmployees },
+    { label: isToday ? 'Present today' : 'Present', value: `${presentCount} (${Math.round(presentRate * 100)}%)` },
+    { label: 'On leave', value: onLeaveToday.length },
+    { label: 'Pending approvals', value: (pendingLeave.data ?? []).length },
+  ]
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -46,57 +77,87 @@ export function AdminDashboard() {
           <h2 className="text-base font-medium">Overview</h2>
           <p className="text-xs text-muted-foreground">Headcount, attendance, and leave by shift.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <CalendarDays className="size-4 text-muted-foreground" />
-          <input
-            type="date"
-            value={date}
-            max={toISODate(new Date())}
-            onChange={(e) => setDate(e.target.value)}
-            className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
-        </div>
+        <DatePicker
+          value={date}
+          onChange={setDate}
+          max={toISODate(new Date())}
+          placeholder={isToday ? 'Today' : 'Pick a date'}
+          className="w-40"
+        />
       </div>
 
-      <ShiftStatBoxes metricsForShift={metricsForShift} loading={loading} />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {kpis.map((k) => (
+          <div key={k.label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
+            {loading ? (
+              <Skeleton className="h-7 w-16" />
+            ) : (
+              <p className="text-2xl font-medium tabular-nums tracking-tight">{k.value}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground">{k.label}</p>
+          </div>
+        ))}
+      </div>
 
-      <Card className="shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">Pending approvals</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {pendingLeave.loading ? (
-            <div className="space-y-2">
-              {[0, 1].map((i) => (
-                <Skeleton key={i} className="h-10 w-full" />
-              ))}
-            </div>
-          ) : (pendingLeave.data ?? []).length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Queue is clear.</p>
-          ) : (
-            <ul className="divide-y divide-border">
-              {(pendingLeave.data ?? []).slice(0, 5).map((l) => (
-                <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
-                  <div>
-                    <p className="text-sm">
-                      <EmployeeQuickView employeeId={l.employee.id}>
-                        <button type="button" className="font-medium hover:underline">
-                          {l.employee.name}
-                        </button>
-                      </EmployeeQuickView>{' '}
-                      <LeaveTypePill type={l.type} />
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDate(l.startDate)} – {formatDate(l.endDate)}
-                    </p>
-                  </div>
-                  <LeaveStatusPill status={l.status} />
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <ShiftStatBoxes metricsForShift={metricsForShift} rateForShift={rateForShift} loading={loading} />
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card className="shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">Pending approvals</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {pendingLeave.loading ? (
+              <div className="space-y-2">
+                {[0, 1].map((i) => (
+                  <Skeleton key={i} className="h-10 w-full" />
+                ))}
+              </div>
+            ) : (pendingLeave.data ?? []).length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">Queue is clear.</p>
+            ) : (
+              <ul className="divide-y divide-border">
+                {(pendingLeave.data ?? []).slice(0, 5).map((l) => (
+                  <li key={l.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div>
+                      <p className="text-sm">
+                        <EmployeeQuickView employeeId={l.employee.id}>
+                          <button type="button" className="font-medium hover:underline">
+                            {l.employee.name}
+                          </button>
+                        </EmployeeQuickView>{' '}
+                        <LeaveTypePill type={l.type} />
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatDate(l.startDate)} – {formatDate(l.endDate)}
+                      </p>
+                    </div>
+                    <LeaveStatusPill status={l.status} />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="text-base">Quick actions</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-1.5">
+            {QUICK_ACTIONS.map(({ to, label, icon: Icon }) => (
+              <Link
+                key={to}
+                to={to}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-zinc-700 transition-colors hover:bg-zinc-100"
+              >
+                <Icon className="size-4 text-indigo-600" />
+                {label}
+              </Link>
+            ))}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }

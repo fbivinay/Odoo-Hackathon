@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { ArrowLeft, Plus } from 'lucide-react'
+import { DatePicker } from '@/components/DatePicker'
 import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -80,14 +81,7 @@ function AddSalaryDialog({ employeeId, onCreated }: { employeeId: string; onCrea
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="effectiveDate">Effective from</Label>
-              <input
-                id="effectiveDate"
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                required
-              />
+              <DatePicker id="effectiveDate" value={effectiveDate} onChange={setEffectiveDate} />
             </div>
             {error && <p className="text-xs text-rose-600">{error}</p>}
           </div>

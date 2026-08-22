@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { CalendarRange, Search } from 'lucide-react'
+import { CalendarRange, MessageSquarePlus, Search } from 'lucide-react'
 import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { EmptyState } from '@/components/EmptyState'
@@ -54,6 +54,7 @@ export function LeaveQueue() {
 
   const { data, loading, reload } = useApi<AdminLeaveRow[]>('/admin/leave')
   const [comments, setComments] = useState<Record<string, string>>({})
+  const [commentOpenFor, setCommentOpenFor] = useState<Record<string, boolean>>({})
   const [pendingLocal, setPendingLocal] = useState<Record<string, LeaveStatus>>({})
   const timers = useRef<Record<string, ReturnType<typeof setTimeout>>>({})
 
@@ -63,6 +64,12 @@ export function LeaveQueue() {
     const found = new Set<number>()
     for (const l of all) for (const s of monthsSpanned(l.startDate, l.endDate)) found.add(s.year)
     return [...found].sort((a, b) => b - a)
+  }, [all])
+
+  const countsByStatus = useMemo(() => {
+    const out: Record<LeaveStatus | 'ALL', number> = { PENDING: 0, APPROVED: 0, REJECTED: 0, ALL: all.length }
+    for (const l of all) out[l.status] += 1
+    return out
   }, [all])
 
   const rows = useMemo(() => {
@@ -125,17 +132,30 @@ export function LeaveQueue() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-medium">Leave approvals</h2>
-        <p className="text-xs text-muted-foreground">Approve or reject with an optional comment.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-base font-medium">Leave approvals</h2>
+          <p className="text-xs text-muted-foreground">
+            {loading ? 'Loading…' : `${rows.length} of ${all.length} request${all.length === 1 ? '' : 's'}`}
+          </p>
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <Tabs value={tab} onValueChange={(v) => setTab(v as LeaveStatus | 'ALL')}>
           <TabsList>
             {TABS.map((t) => (
-              <TabsTrigger key={t.value} value={t.value}>
+              <TabsTrigger key={t.value} value={t.value} className="gap-1.5">
                 {t.label}
+                <span
+                  className={
+                    tab === t.value
+                      ? 'text-xs tabular-nums text-muted-foreground'
+                      : 'text-xs tabular-nums text-muted-foreground/70'
+                  }
+                >
+                  {countsByStatus[t.value]}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
@@ -219,12 +239,24 @@ export function LeaveQueue() {
 
                 {!decided && (
                   <div className="mt-3 space-y-2">
-                    <Textarea
-                      placeholder="Comment (optional)"
-                      rows={2}
-                      value={comments[l.id] ?? ''}
-                      onChange={(e) => setComments((c) => ({ ...c, [l.id]: e.target.value }))}
-                    />
+                    {commentOpenFor[l.id] ? (
+                      <Textarea
+                        autoFocus
+                        placeholder="Comment (optional)"
+                        rows={2}
+                        value={comments[l.id] ?? ''}
+                        onChange={(e) => setComments((c) => ({ ...c, [l.id]: e.target.value }))}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setCommentOpenFor((m) => ({ ...m, [l.id]: true }))}
+                        className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        <MessageSquarePlus className="size-3.5" />
+                        Add a comment
+                      </button>
+                    )}
                     <div className="flex justify-end gap-2">
                       <Button size="sm" variant="outline" onClick={() => commit(l, 'REJECTED')}>
                         Reject leave

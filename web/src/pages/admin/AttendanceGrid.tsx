@@ -3,6 +3,7 @@ import { CalendarDays } from 'lucide-react'
 import { AttendanceStatusPill } from '@/components/StatusPill'
 import { Badge } from '@/components/ui/badge'
 import { DataTable } from '@/components/DataTable'
+import { DatePicker } from '@/components/DatePicker'
 import { EmployeeQuickView } from '@/components/EmployeeQuickView'
 import { EmptyState } from '@/components/EmptyState'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -121,14 +122,7 @@ export function AttendanceGrid() {
               ))}
             </SelectContent>
           </Select>
-          <CalendarDays className="size-4 text-muted-foreground" />
-          <input
-            type="date"
-            value={date}
-            max={toISODate(new Date())}
-            onChange={(e) => setDate(e.target.value)}
-            className="flex h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
-          />
+          <DatePicker value={date} onChange={setDate} max={toISODate(new Date())} className="w-40" />
         </div>
       </div>
 

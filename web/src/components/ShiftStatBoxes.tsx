@@ -10,15 +10,17 @@ export interface ShiftMetric {
 
 interface Props {
   metricsForShift: (shift: Shift) => ShiftMetric[]
+  rateForShift?: (shift: Shift) => number | null
   loading?: boolean
   className?: string
 }
 
-export function ShiftStatBoxes({ metricsForShift, loading, className }: Props) {
+export function ShiftStatBoxes({ metricsForShift, rateForShift, loading, className }: Props) {
   return (
     <div className={cn('grid gap-4 sm:grid-cols-3', className)}>
       {SHIFTS.map((shift) => {
         const metrics = metricsForShift(shift)
+        const rate = rateForShift?.(shift) ?? null
         return (
           <div key={shift} className="rounded-lg border border-border bg-card p-4 shadow-sm">
             <div className="flex items-center justify-between">
@@ -47,6 +49,19 @@ export function ShiftStatBoxes({ metricsForShift, loading, className }: Props) {
                 </div>
               ))}
             </div>
+            {rate !== null && (
+              <div className="mt-4 space-y-1">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
+                  <div
+                    className="h-full rounded-full bg-indigo-500 transition-[width]"
+                    style={{ width: `${loading ? 0 : Math.round(rate * 100)}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {loading ? '—' : `${Math.round(rate * 100)}% attendance`}
+                </p>
+              </div>
+            )}
           </div>
         )
       })}
