@@ -23,6 +23,10 @@ export function formatTime(iso: string | null): string {
   return new Date(iso).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
 }
 
+export function formatDateTime(iso: string): string {
+  return `${formatDate(iso)}, ${formatTime(iso)}`
+}
+
 export function toISODate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }

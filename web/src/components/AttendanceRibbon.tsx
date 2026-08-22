@@ -13,10 +13,11 @@ interface Props {
   days?: number
   size?: keyof typeof SIZES
   className?: string
+  shift?: string | null
 }
 
-export function AttendanceRibbon({ records, days = 30, size = 'full', className }: Props) {
-  const ribbon = buildRibbonDays(records, days)
+export function AttendanceRibbon({ records, days = 30, size = 'full', className, shift = null }: Props) {
+  const ribbon = buildRibbonDays(records, days, shift)
   return (
     <div className={cn('flex items-end', size === 'full' ? 'gap-1' : 'gap-[2px]', className)}>
       {ribbon.map((d) => {

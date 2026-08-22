@@ -38,3 +38,17 @@ export function lateMinutesFor(checkInIso: string | null, shift: string | null):
   const minutesLate = Math.round((checkIn.getTime() - scheduled.getTime()) / 60000)
   return minutesLate > GRACE_MINUTES ? minutesLate : null
 }
+
+export type ShiftPhase = 'UPCOMING' | 'ACTIVE' | 'ENDED'
+
+// Where `now` sits relative to `shift`'s 8-hour window anchored to `workDateISO` (local
+// midnight of that date). Used so a shift that hasn't started yet today isn't shown as absent.
+export function shiftPhaseFor(shift: string | null, workDateISO: string, now = new Date()): ShiftPhase | null {
+  if (!shift || !(shift in SHIFT_START_HOUR)) return null
+  const start = new Date(`${workDateISO}T00:00:00`)
+  start.setHours(SHIFT_START_HOUR[shift as Shift], 0, 0, 0)
+  const end = new Date(start.getTime() + 8 * 3600_000)
+  if (now < start) return 'UPCOMING'
+  if (now < end) return 'ACTIVE'
+  return 'ENDED'
+}

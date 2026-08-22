@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  Bell,
   CalendarDays,
   CalendarRange,
   ChartColumn,
@@ -30,6 +31,7 @@ const EMPLOYEE_NAV = [
   { to: '/leave', label: 'Leave', icon: CalendarRange },
   { to: '/payroll', label: 'Payroll', icon: ReceiptIndianRupee },
   { to: '/profile', label: 'Profile', icon: UserRound },
+  { to: '/notifications', label: 'Alerts', icon: Bell },
 ]
 
 const ADMIN_NAV = [
@@ -39,6 +41,7 @@ const ADMIN_NAV = [
   { to: '/admin/attendance', label: 'Attendance', icon: CalendarDays },
   { to: '/admin/leave', label: 'Leave approvals', icon: CalendarRange },
   { to: '/admin/payroll', label: 'Payroll', icon: ReceiptIndianRupee },
+  { to: '/notifications', label: 'Alerts', icon: Bell },
 ]
 
 export function AppShell() {
@@ -49,7 +52,7 @@ export function AppShell() {
   if (!employee) return null
 
   const nav = employee.role === 'HR_ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
-  const activeLabel = pathname === '/notifications' ? 'Alerts' : nav.find((n) => n.to === pathname)?.label ?? 'Dayflow'
+  const activeLabel = nav.find((n) => n.to === pathname)?.label ?? 'Dayflow'
 
   function handleSignOut() {
     signOut()

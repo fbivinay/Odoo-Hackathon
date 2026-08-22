@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ArrowLeft, Plus } from 'lucide-react'
+import { ArrowLeft, Plus, UserX } from 'lucide-react'
 import { DatePicker } from '@/components/DatePicker'
 import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { Badge } from '@/components/ui/badge'
@@ -103,6 +103,8 @@ export function EmployeeDetail() {
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState({ jobTitle: '', department: '', shift: '', role: 'EMPLOYEE' as Role })
   const [busy, setBusy] = useState(false)
+  const [confirmingDeactivate, setConfirmingDeactivate] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
   const employee = emp.data
   const current = history.data?.[0] ?? null
@@ -133,6 +135,20 @@ export function EmployeeDetail() {
     }
   }
 
+  async function onDeactivate() {
+    setDeactivating(true)
+    try {
+      await api<Employee>(`/admin/employees/${id}/deactivate`, { method: 'PATCH' })
+      toast.success('Employee deactivated')
+      setConfirmingDeactivate(false)
+      emp.reload()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : 'Could not deactivate employee.')
+    } finally {
+      setDeactivating(false)
+    }
+  }
+
   if (emp.loading || !employee) {
     return (
       <div className="space-y-4">
@@ -160,10 +176,40 @@ export function EmployeeDetail() {
               <Badge variant={employee.role === 'HR_ADMIN' ? 'default' : 'outline'}>
                 {employee.role === 'HR_ADMIN' ? 'HR admin' : 'Employee'}
               </Badge>
+              {!employee.isActive && (
+                <Badge variant="outline" className="border-rose-200 text-rose-700">
+                  Deactivated
+                </Badge>
+              )}
             </div>
           </div>
+          {employee.isActive && (
+            <Button variant="outline" size="sm" className="text-rose-600 hover:text-rose-700" onClick={() => setConfirmingDeactivate(true)}>
+              <UserX className="size-4" />
+              Deactivate
+            </Button>
+          )}
         </CardContent>
       </Card>
+
+      <Dialog open={confirmingDeactivate} onOpenChange={setConfirmingDeactivate}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Deactivate {employee.name}?</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            They'll be signed out and won't be able to log back in. This can't be undone from here.
+          </p>
+          <DialogFooter>
+            <Button variant="ghost" onClick={() => setConfirmingDeactivate(false)} disabled={deactivating}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={onDeactivate} disabled={deactivating}>
+              {deactivating ? 'Deactivating…' : 'Deactivate'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="shadow-sm">
         <CardHeader className="flex-row items-center justify-between space-y-0">

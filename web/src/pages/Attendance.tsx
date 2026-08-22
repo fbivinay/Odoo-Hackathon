@@ -51,8 +51,9 @@ function dailyColumns(shift: string | null): ColumnDef<AttendanceRow, any>[] {
       header: 'Status',
       enableSorting: false,
       cell: ({ row }) => {
-        const isToday = asISODate(row.original.date) === toISODate(new Date())
-        return <AttendanceStatusPill status={displayStatus(row.original, isToday)} />
+        const date = asISODate(row.original.date)
+        const isToday = date === toISODate(new Date())
+        return <AttendanceStatusPill status={displayStatus(row.original, isToday, shift, date)} />
       },
     },
   ]

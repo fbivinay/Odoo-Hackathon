@@ -8,6 +8,7 @@ import { KpiCard } from '@/components/tremor/KpiCard'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useSession } from '@/auth/session'
 import { api, ApiError } from '@/lib/api'
 import { asISODate, elapsed, formatDate, toISODate } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
@@ -29,6 +30,7 @@ function LiveTimer({ since }: { since: string }) {
 }
 
 export function Dashboard() {
+  const { employee } = useSession()
   const attendance = useApi<Attendance[]>('/attendance')
   const leave = useApi<Leave[]>('/leave')
   const [busy, setBusy] = useState(false)
@@ -75,7 +77,11 @@ export function Dashboard() {
           )}
         </CardHeader>
         <CardContent className="space-y-4">
-          {attendance.loading ? <Skeleton className="h-10 w-full" /> : <AttendanceRibbon records={records} />}
+          {attendance.loading ? (
+            <Skeleton className="h-10 w-full" />
+          ) : (
+            <AttendanceRibbon records={records} shift={employee?.shift ?? null} />
+          )}
           <RibbonLegend />
         </CardContent>
       </Card>

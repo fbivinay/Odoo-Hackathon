@@ -62,6 +62,20 @@ const columns: ColumnDef<Row, any>[] = [
       </Badge>
     ),
   },
+  {
+    accessorKey: 'isActive',
+    header: 'Status',
+    cell: ({ row }) =>
+      row.original.isActive ? (
+        <Badge variant="outline" className="border-emerald-200 text-emerald-700">
+          Active
+        </Badge>
+      ) : (
+        <Badge variant="outline" className="border-rose-200 text-rose-700">
+          Deactivated
+        </Badge>
+      ),
+  },
 ]
 
 function InviteEmployeeDialog({
@@ -275,6 +289,7 @@ export function EmployeeList() {
   const [joinedBefore, setJoinedBefore] = useState('')
   const [salaryMin, setSalaryMin] = useState('')
   const [salaryMax, setSalaryMax] = useState('')
+  const [showInactive, setShowInactive] = useState(false)
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -291,15 +306,18 @@ export function EmployeeList() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  const query = new URLSearchParams()
+  if (debouncedSearch) query.set('search', debouncedSearch)
+  if (showInactive) query.set('includeInactive', 'true')
   const { data, loading, reload } = useApi<Employee[]>(
-    `/admin/employees${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`,
-    [debouncedSearch],
+    `/admin/employees${query.toString() ? `?${query.toString()}` : ''}`,
+    [debouncedSearch, showInactive],
   )
   const payroll = useApi<AdminPayrollSummary[]>('/admin/payroll')
 
   useEffect(() => {
     setPage(0)
-  }, [debouncedSearch, shiftFilter, departmentFilter, titleFilter, joinedAfter, joinedBefore, salaryMin, salaryMax])
+  }, [debouncedSearch, shiftFilter, departmentFilter, titleFilter, joinedAfter, joinedBefore, salaryMin, salaryMax, showInactive])
 
   const salaryById = useMemo(() => {
     const map = new Map<string, number>()
@@ -345,6 +363,7 @@ export function EmployeeList() {
     joinedBefore !== '',
     salaryMin !== '',
     salaryMax !== '',
+    showInactive,
   ].filter(Boolean).length
   const filtersActive = activeFilterCount > 0
 
@@ -356,6 +375,7 @@ export function EmployeeList() {
     setJoinedBefore('')
     setSalaryMin('')
     setSalaryMax('')
+    setShowInactive(false)
   }
 
   function exportAll() {
@@ -371,6 +391,7 @@ export function EmployeeList() {
         { header: 'Joined', value: (e) => formatDate(e.createdAt) },
         { header: 'Salary', value: (e) => e.salary },
         { header: 'Role', value: (e) => e.role },
+        { header: 'Status', value: (e) => (e.isActive ? 'Active' : 'Deactivated') },
         { header: 'Phone', value: (e) => e.phone },
       ]),
     )
@@ -500,6 +521,15 @@ export function EmployeeList() {
                     className="h-8 text-xs"
                   />
                 </div>
+                <label className="col-span-2 mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showInactive}
+                    onChange={(e) => setShowInactive(e.target.checked)}
+                    className="size-3.5 rounded border-input"
+                  />
+                  Show deactivated employees
+                </label>
               </div>
             </PopoverContent>
           </Popover>

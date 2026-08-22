@@ -1,4 +1,5 @@
 import { asISODate, toISODate } from './format.ts'
+import { shiftPhaseFor } from './shifts.ts'
 import type { Attendance, DisplayStatus } from '@/types'
 
 export const STATUS_META: Record<DisplayStatus, { label: string; bar: string; pill: string }> = {
@@ -32,14 +33,41 @@ export const STATUS_META: Record<DisplayStatus, { label: string; bar: string; pi
     bar: 'bg-zinc-200',
     pill: 'bg-zinc-100 text-zinc-600 ring-zinc-500/20',
   },
+  UPCOMING: {
+    label: 'Not started',
+    bar: 'bg-zinc-100',
+    pill: 'bg-zinc-50 text-zinc-500 ring-zinc-400/20',
+  },
 }
 
 // Today's check-in-without-checkout is a client-only display state — the API's
-// AttendanceStatus enum has no IN_PROGRESS value.
-export function displayStatus(record: { checkIn: string | null; checkOut: string | null; status: string } | null, isToday: boolean): DisplayStatus {
-  if (!record) return 'NO_RECORD'
+// AttendanceStatus enum has no IN_PROGRESS value. A missing row for today is only "absent"
+// once that employee's shift has actually started — pass shift + workDateISO to tell the
+// difference from a shift that just hasn't begun yet.
+export function displayStatus(
+  record: { checkIn: string | null; checkOut: string | null; status: string } | null,
+  isToday: boolean,
+  shift?: string | null,
+  workDateISO?: string,
+): DisplayStatus {
+  if (!record) {
+    if (isToday && workDateISO && shiftPhaseFor(shift ?? null, workDateISO) === 'UPCOMING') return 'UPCOMING'
+    return 'NO_RECORD'
+  }
   if (isToday && record.checkIn && !record.checkOut) return 'IN_PROGRESS'
   return record.status as DisplayStatus
+}
+
+// Shift 3 runs 10pm-6am — a still-open row dated yesterday IS the employee's current status
+// when "today" hasn't reached the point their overnight shift would have ended yet.
+export function resolveCurrentRecord<T extends { checkIn: string | null; checkOut: string | null }>(
+  shift: string | null,
+  todayRecord: T | null,
+  yesterdayRecord: T | null,
+): T | null {
+  if (todayRecord) return todayRecord
+  if (shift === 'Shift 3' && yesterdayRecord?.checkIn && !yesterdayRecord.checkOut) return yesterdayRecord
+  return null
 }
 
 export interface RibbonDay {
@@ -88,7 +116,7 @@ export function groupByWeek(records: Attendance[]): WeekSummary[] {
 }
 
 // Fills gaps (weekends, days with no attendance row) so the ribbon always shows a fixed window.
-export function buildRibbonDays(records: Attendance[], days = 30): RibbonDay[] {
+export function buildRibbonDays(records: Attendance[], days = 30, shift: string | null = null): RibbonDay[] {
   const byDate = new Map(records.map((r) => [asISODate(r.date), r]))
   const today = toISODate(new Date())
   const out: RibbonDay[] = []
@@ -99,7 +127,7 @@ export function buildRibbonDays(records: Attendance[], days = 30): RibbonDay[] {
     const record = byDate.get(date) ?? null
     out.push({
       date,
-      status: displayStatus(record, date === today),
+      status: displayStatus(record, date === today, shift, date),
       checkIn: record?.checkIn ?? null,
       checkOut: record?.checkOut ?? null,
     })

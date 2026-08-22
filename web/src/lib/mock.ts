@@ -174,6 +174,7 @@ const employees: MockUser[] = NAMES.map((name, i) => {
     jobTitle: role.designation,
     department: role.department,
     shift: shiftFor(i),
+    isActive: true,
     emailVerified: true,
     mustChangePassword: false,
     createdAt: joinDateFor(rand, role.level).toISOString(),
@@ -193,6 +194,7 @@ const admin: MockUser = {
   jobTitle: 'HR Manager',
   department: 'People Ops',
   shift: null,
+  isActive: true,
   emailVerified: true,
   mustChangePassword: false,
   createdAt: '2021-04-01T09:00:00Z',
@@ -218,6 +220,8 @@ function seedAttendance(employee: MockUser, days: number): Attendance[] {
   const joinedAt = new Date(employee.createdAt)
   joinedAt.setHours(0, 0, 0, 0)
 
+  const now = new Date()
+
   for (let i = days - 1; i >= 0; i--) {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -228,20 +232,30 @@ function seedAttendance(employee: MockUser, days: number): Attendance[] {
 
     const date = toISODate(d)
     const isToday = i === 0
-    const absenceChance = dow === 1 || dow === 5 ? 0.09 : 0.04
+    const isYesterday = i === 1
+    const startHour = SHIFT_START_HOUR[employee.shift as Shift] ?? 9
+    const shiftStart = new Date(d)
+    shiftStart.setHours(startHour, 0, 0, 0)
 
-    if (!isToday && rand() < absenceChance) {
+    // Their shift hasn't started yet today -> no row at all, renders as "not started".
+    if (isToday && now < shiftStart) continue
+
+    const absenceChance = dow === 1 || dow === 5 ? 0.09 : 0.04
+    if (!isToday && !isYesterday && rand() < absenceChance) {
       out.push({ id: uid('att', out.length + 1), employeeId: employee.id, date, checkIn: null, checkOut: null, status: 'ABSENT' })
       continue
     }
 
-    const startHour = SHIFT_START_HOUR[employee.shift as Shift] ?? 9
-    const checkIn = new Date(d)
-    checkIn.setHours(startHour, Math.floor(rand() * 45), 0, 0)
-    const isHalfDay = !isToday && rand() < 0.06
+    const checkIn = new Date(shiftStart)
+    checkIn.setMinutes(Math.floor(rand() * 45))
+    // An overnight shift (Shift 3) that started yesterday and hasn't reached its 8-hour mark
+    // yet is still genuinely in progress right now, not a closed-out day.
+    const shiftEnd = new Date(shiftStart.getTime() + 8 * 3600_000)
+    const stillOpen = isToday || (isYesterday && startHour >= 20 && now < shiftEnd)
+    const isHalfDay = !stillOpen && rand() < 0.06
     const hours = isHalfDay ? 3 + rand() : 8 + rand() * 1.5
     const checkOutDate = new Date(checkIn.getTime() + hours * 3600_000)
-    const checkOut = isToday ? null : checkOutDate.toISOString()
+    const checkOut = stillOpen ? null : checkOutDate.toISOString()
 
     out.push({
       id: uid('att', out.length + 1),
@@ -439,6 +453,7 @@ export async function mockRequest<T>(
   if (route === '/auth/signin' && method === 'POST') {
     const user = allUsers.find((u) => u.email === body.email)
     if (!user || user.password !== body.password) fail('UNAUTHORIZED', 'Invalid email or password')
+    if (!user.isActive) fail('UNAUTHORIZED', 'Account has been deactivated')
     return {
       token: issueToken(user),
       employee: {
@@ -470,6 +485,7 @@ export async function mockRequest<T>(
       jobTitle: (body as unknown as { jobTitle?: string }).jobTitle ?? null,
       department: (body as unknown as { department?: string }).department ?? null,
       shift: (body as unknown as { shift?: string }).shift ?? null,
+      isActive: true,
       emailVerified: true,
       mustChangePassword: true,
       createdAt: new Date().toISOString(),
@@ -589,7 +605,9 @@ export async function mockRequest<T>(
 
   if (route === '/admin/employees' && method === 'GET') {
     const search = (q.get('search') ?? '').toLowerCase()
+    const includeInactive = q.get('includeInactive') === 'true'
     return employees
+      .filter((e) => includeInactive || e.isActive)
       .filter(
         (e) =>
           !search ||
@@ -604,6 +622,13 @@ export async function mockRequest<T>(
   if (route.startsWith('/admin/employees/') && method === 'GET') {
     const id = route.split('/')[3]
     const e = employees.find((x) => x.id === id) ?? fail('NOT_FOUND', 'Employee not found')
+    return strip(e) as T
+  }
+
+  if (route.endsWith('/deactivate') && route.startsWith('/admin/employees/') && method === 'PATCH') {
+    const id = route.split('/')[3]
+    const e = employees.find((x) => x.id === id) ?? fail('NOT_FOUND', 'Employee not found')
+    e.isActive = false
     return strip(e) as T
   }
 

@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { api, ApiError } from '@/lib/api'
-import { asISODate, formatDate } from '@/lib/format'
+import { asISODate, formatDate, formatDateTime } from '@/lib/format'
 import { useApi } from '@/lib/useApi'
 import { useDebounced } from '@/lib/useDebounced'
 import type { AdminLeaveRow, LeaveStatus } from '@/types'
@@ -232,6 +232,7 @@ export function LeaveQueue() {
                     <p className="mt-1 text-sm text-muted-foreground">
                       {formatDate(l.startDate)} – {formatDate(l.endDate)}
                     </p>
+                    <p className="mt-1 text-[11px] text-muted-foreground">Submitted {formatDateTime(l.createdAt)}</p>
                     {l.remarks && <p className="mt-1 text-xs text-muted-foreground">{l.remarks}</p>}
                   </div>
                   <LeaveStatusPill status={displayed} />

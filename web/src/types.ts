@@ -3,8 +3,9 @@ export type LeaveType = 'PAID' | 'SICK' | 'UNPAID'
 export type LeaveStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'HALF_DAY' | 'LEAVE'
 
-// Presentational only, never sent by the API: today's live check-in and days with no row.
-export type DisplayStatus = AttendanceStatus | 'IN_PROGRESS' | 'NO_RECORD'
+// Presentational only, never sent by the API: today's live check-in, days with no row, and
+// a shift that hasn't started yet today.
+export type DisplayStatus = AttendanceStatus | 'IN_PROGRESS' | 'NO_RECORD' | 'UPCOMING'
 
 export interface Employee {
   id: string
@@ -18,6 +19,7 @@ export interface Employee {
   jobTitle: string | null
   department: string | null
   shift: string | null
+  isActive: boolean
   emailVerified: boolean
   mustChangePassword: boolean
   createdAt: string

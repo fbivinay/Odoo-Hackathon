@@ -7,6 +7,7 @@ import { LeaveStatusPill, LeaveTypePill } from '@/components/StatusPill'
 import { ShiftStatBoxes, type ShiftMetric } from '@/components/ShiftStatBoxes'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { resolveCurrentRecord } from '@/lib/attendance'
 import { formatDate, toISODate } from '@/lib/format'
 import type { Shift } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
@@ -18,6 +19,12 @@ const QUICK_ACTIONS = [
   { to: '/admin/payroll', label: 'Run payroll', icon: ReceiptIndianRupee },
 ]
 
+function yesterdayOf(dateISO: string): string {
+  const d = new Date(`${dateISO}T00:00:00`)
+  d.setDate(d.getDate() - 1)
+  return toISODate(d)
+}
+
 export function AdminDashboard() {
   const [date, setDate] = useState(toISODate(new Date()))
   const isToday = date === toISODate(new Date())
@@ -26,8 +33,11 @@ export function AdminDashboard() {
   const pendingLeave = useApi<AdminLeaveRow[]>('/admin/leave?status=PENDING')
   const approvedLeave = useApi<AdminLeaveRow[]>('/admin/leave?status=APPROVED')
   const attendanceForDate = useApi<AdminAttendanceRow[]>(`/admin/attendance?date=${date}`, [date])
+  // Carry forward Shift 3's still-open overnight rows from yesterday into "today"'s count.
+  const previousAttendance = useApi<AdminAttendanceRow[]>(isToday ? `/admin/attendance?date=${yesterdayOf(date)}` : null)
 
-  const loading = roster.loading || pendingLeave.loading || attendanceForDate.loading
+  const loading =
+    roster.loading || pendingLeave.loading || attendanceForDate.loading || (isToday && previousAttendance.loading)
 
   const shiftById = useMemo(() => {
     const map = new Map<string, Shift | null>()
@@ -38,14 +48,29 @@ export function AdminDashboard() {
   const onLeaveToday = (approvedLeave.data ?? []).filter((l) => l.startDate <= date && date <= l.endDate)
 
   const totalEmployees = (roster.data ?? []).length
-  const presentCount = (attendanceForDate.data ?? []).filter((r) => r.checkIn).length
+
+  // Shift 3 runs past midnight — a still-open row from yesterday is the real "now" for an
+  // overnight employee when today's own row doesn't exist yet, so presence is resolved per
+  // employee (with carry-forward) rather than read straight off attendanceForDate.
+  const presentByEmployee = useMemo(() => {
+    const byEmployee = new Map((attendanceForDate.data ?? []).map((r) => [r.employeeId, r]))
+    const byEmployeeYesterday = new Map((previousAttendance.data ?? []).map((r) => [r.employeeId, r]))
+    const map = new Map<string, boolean>()
+    for (const e of roster.data ?? []) {
+      const resolved = isToday
+        ? resolveCurrentRecord(e.shift, byEmployee.get(e.id) ?? null, byEmployeeYesterday.get(e.id) ?? null)
+        : byEmployee.get(e.id) ?? null
+      map.set(e.id, Boolean(resolved?.checkIn))
+    }
+    return map
+  }, [roster.data, attendanceForDate.data, previousAttendance.data, isToday])
+
+  const presentCount = [...presentByEmployee.values()].filter(Boolean).length
   const presentRate = totalEmployees > 0 ? presentCount / totalEmployees : 0
 
   const metricsForShift = (shift: Shift): ShiftMetric[] => {
     const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
-    const present = (attendanceForDate.data ?? []).filter(
-      (r) => shiftById.get(r.employeeId) === shift && r.checkIn,
-    ).length
+    const present = (roster.data ?? []).filter((e) => e.shift === shift && presentByEmployee.get(e.id)).length
     const pending = (pendingLeave.data ?? []).filter((l) => shiftById.get(l.employee.id) === shift).length
     return [
       { label: 'Employees', value: headcount },
@@ -57,9 +82,7 @@ export function AdminDashboard() {
   const rateForShift = (shift: Shift): number | null => {
     const headcount = (roster.data ?? []).filter((e) => e.shift === shift).length
     if (headcount === 0) return null
-    const present = (attendanceForDate.data ?? []).filter(
-      (r) => shiftById.get(r.employeeId) === shift && r.checkIn,
-    ).length
+    const present = (roster.data ?? []).filter((e) => e.shift === shift && presentByEmployee.get(e.id)).length
     return present / headcount
   }
 
