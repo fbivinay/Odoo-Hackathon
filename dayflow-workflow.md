@@ -157,7 +157,7 @@ Response envelope: `{ ok: true, data }` on success, `{ ok: false, error, message
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/auth/signup` | none | employeeId, email, password, role |
+| POST | `/api/auth/signup` | none | employeeId, email, password, name — always creates role=EMPLOYEE; HR_ADMIN accounts are seeded or promoted via `PATCH /api/admin/employees/:id`, never via public signup |
 | POST | `/api/auth/verify-email` | none | token from email link |
 | POST | `/api/auth/signin` | none | returns JWT |
 | GET | `/api/me` | employee | own profile |

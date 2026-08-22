@@ -11,7 +11,6 @@ const signupSchema = z.object({
   employeeId: z.string().min(1),
   email: z.string().email(),
   password: passwordRule,
-  role: z.enum(['EMPLOYEE', 'HR_ADMIN']).default('EMPLOYEE'),
   name: z.string().min(1),
 });
 

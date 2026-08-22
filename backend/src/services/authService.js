@@ -6,7 +6,7 @@ const { badRequest, unauthorized, conflict } = require('../lib/errors');
 
 const VERIFY_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
 
-async function signup({ employeeId, email, password, role, name }) {
+async function signup({ employeeId, email, password, name }) {
   const existing = await prisma.employee.findFirst({
     where: { OR: [{ email }, { employeeId }] },
   });
@@ -21,7 +21,7 @@ async function signup({ employeeId, email, password, role, name }) {
       employeeId,
       email,
       passwordHash,
-      role,
+      role: 'EMPLOYEE',
       name,
       verifyToken,
       verifyExpires,
