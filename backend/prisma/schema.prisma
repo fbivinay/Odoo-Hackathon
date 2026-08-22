@@ -36,6 +36,7 @@ model Employee {
   employeeId    String    @unique
   email         String    @unique
   passwordHash  String
+  mustChangePassword Boolean @default(false)
   role          Role      @default(EMPLOYEE)
   name          String
   phone         String?

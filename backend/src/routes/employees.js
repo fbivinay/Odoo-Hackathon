@@ -4,7 +4,9 @@ const path = require('path');
 const asyncHandler = require('../middleware/asyncHandler');
 const { requireAuth } = require('../middleware/auth');
 const employeeService = require('../services/employeeService');
+const authService = require('../services/authService');
 const { selfEditSchema } = require('../validators/employeeValidators');
+const { changePasswordSchema } = require('../validators/authValidators');
 const { badRequest } = require('../lib/errors');
 
 const router = Router();
@@ -43,6 +45,15 @@ router.patch(
   asyncHandler(async (req, res) => {
     const input = selfEditSchema.parse(req.body);
     const data = await employeeService.updateSelf(req.user.id, input);
+    res.json({ ok: true, data });
+  })
+);
+
+router.patch(
+  '/me/password',
+  asyncHandler(async (req, res) => {
+    const input = changePasswordSchema.parse(req.body);
+    const data = await authService.changePassword(req.user.id, input);
     res.json({ ok: true, data });
   })
 );

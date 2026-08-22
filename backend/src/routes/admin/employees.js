@@ -1,7 +1,7 @@
 const { Router } = require('express');
 const asyncHandler = require('../../middleware/asyncHandler');
 const employeeService = require('../../services/employeeService');
-const { adminEditSchema } = require('../../validators/employeeValidators');
+const { adminEditSchema, inviteSchema } = require('../../validators/employeeValidators');
 
 const router = Router();
 
@@ -10,6 +10,15 @@ router.get(
   asyncHandler(async (req, res) => {
     const data = await employeeService.list({ search: req.query.search });
     res.json({ ok: true, data });
+  })
+);
+
+router.post(
+  '/invite',
+  asyncHandler(async (req, res) => {
+    const input = inviteSchema.parse(req.body);
+    const { employee, tempPassword } = await employeeService.invite(input);
+    res.status(201).json({ ok: true, data: { employee, tempPassword } });
   })
 );
 

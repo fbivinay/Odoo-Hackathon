@@ -8,7 +8,7 @@ This file is the execution checklist AND the architecture reference — schema, 
 
 **Stack (locked):**
 - Backend: Node.js + Express, Prisma ORM, PostgreSQL
-- Auth: self-built — bcrypt password hashing, JWT access tokens, email verification via signed token link (no Clerk — PDF §3.1.1/3.1.2 requires custom sign-up/sign-in with Employee ID, so we own the whole flow)
+- Auth: self-built — bcrypt password hashing, JWT access tokens. **No public self-signup.** Accounts only get created by an admin via invite (§2), which generates a temp password the admin relays out of band; the employee signs in and is forced to change it on first login (`mustChangePassword`). This replaces email-verification-gated self-signup — there's no email provider wired up, and self-chosen `employeeId` values don't make sense for a real org anyway. Deviates from PDF §3.1.1's literal self-signup wording; call this out to judges as an intentional, more realistic improvement (admin-provisioned accounts is how every real HRMS works).
 - Validation: zod
 - Security middleware: helmet, cors, express-rate-limit
 - Frontend: React + Vite, Tailwind, shadcn/ui
@@ -22,9 +22,9 @@ This file is the execution checklist AND the architecture reference — schema, 
 - All routes are under `/api/*` — see §2 for the full contract. Health check: `GET /health`.
 - **Free-tier note:** Render's free instance sleeps after ~15 min idle — the first request after a gap can take up to ~30s to wake it up. Hit `/health` a minute before demoing or testing to warm it up.
 - **Auth header:** every non-auth request needs `Authorization: Bearer <token>`. Get the token from `POST /api/auth/signin` (`data.token` in the response).
-- **This is real data, not mocks.** All 19 endpoints are live against the shared Neon Postgres DB and have been verified end to end (signup → verify → signin → check-in → apply leave → admin approve, plus every admin CRUD route, RBAC 401/403, and CORS from `http://localhost:5173`). Build directly against the real API — no need to fake responses.
+- **This is real data, not mocks.** All endpoints are live against the shared Neon Postgres DB and have been verified end to end (admin invite → signin with temp password → forced change-password → old password rejected, plus check-in → apply leave → admin approve, every admin CRUD route, RBAC 401/403, and CORS from `http://localhost:5173`). Build directly against the real API — no need to fake responses.
 - **Seeded logins** (`Password123` for all): `admin@dayflow.dev` (HR_ADMIN), `employee1@dayflow.dev` ... `employee8@dayflow.dev` (EMPLOYEE).
-- **Public signup always creates role `EMPLOYEE`** — there is no role field in the signup form; admin accounts only come from the seed data or an admin promoting someone via `PATCH /api/admin/employees/:id`.
+- **There is no public sign-up page.** Remove `/sign-up` and `/verify-email` from the frontend entirely — the only public route is `/sign-in`. New employees are created by an admin via "Invite employee" (`POST /api/admin/employees/invite`), which returns a one-time temp password for the admin to relay to them. On first sign-in, `data.employee.mustChangePassword` will be `true` — redirect straight to a change-password screen (`PATCH /api/me/password`, body `{ currentPassword, newPassword }`) before letting them into the app.
 - **CORS:** currently allows `http://localhost:5173` only. If you deploy the frontend anywhere else, tell A so the `CORS_ORIGIN` env var on Render gets updated to match — otherwise every request will fail with a CORS error.
 
 ---
@@ -35,9 +35,9 @@ Every item below is copied from the PDF (§3.1–3.6) so you can tick it off dir
 
 | PDF §  | Requirement | Owner | Build slot |
 |---|---|---|---|
-| 3.1.1 | Sign up (Employee ID, email, password, role) | A | 0:00–0:30 |
+| 3.1.1 | Account creation (Employee ID, email, password, role) — **via admin invite, not self-signup** (deliberate deviation, see integration notes above) | A | 0:00–0:30 |
 | 3.1.1 | Password security rules (min length, complexity via zod) | A | 0:00–0:30 |
-| 3.1.1 | Email verification (token link, dev: log link to console) | A | 0:00–0:30 |
+| 3.1.1 | Forced password change on first login (replaces email verification, which had no provider to gate on) | A + B | 0:00–0:30 |
 | 3.1.2 | Sign in, error messages, JWT issue, redirect to dashboard | A (API) + B (form + token storage) | 0:30–2:00 |
 | 3.2.1 | Employee dashboard — quick-access cards (Profile, Attendance, Leave, Logout) + recent activity | B | 2:00–3:30 |
 | 3.2.2 | Admin dashboard — employee list, attendance records, leave approvals, switch between employees | B | 4:00–5:30 |
@@ -171,9 +171,9 @@ Response envelope: `{ ok: true, data }` on success, `{ ok: false, error, message
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
-| POST | `/api/auth/signup` | none | employeeId, email, password, name — always creates role=EMPLOYEE; HR_ADMIN accounts are seeded or promoted via `PATCH /api/admin/employees/:id`, never via public signup |
-| POST | `/api/auth/verify-email` | none | token from email link |
-| POST | `/api/auth/signin` | none | returns JWT |
+| POST | `/api/auth/signin` | none | returns JWT + `employee.mustChangePassword` — if true, force the change-password screen before anything else |
+| PATCH | `/api/me/password` | employee | body `{ currentPassword, newPassword }`, clears `mustChangePassword` |
+| POST | `/api/admin/employees/invite` | admin | body `{ employeeId, email, name, role?, jobTitle?, department? }` — returns `{ employee, tempPassword }`, admin relays the temp password out of band |
 | GET | `/api/me` | employee | own profile |
 | PATCH | `/api/me` | employee | limited fields only |
 | POST | `/api/me/photo` | employee | multipart upload |
@@ -220,7 +220,7 @@ Exit condition: both of you can run `npx prisma studio` and see seeded rows, and
 
 **A — backend**
 - [ ] `src/middleware/auth.js`: `requireAuth`, `requireAdmin`, `assertOwnership`
-- [ ] `src/services/authService.js`: signup (hash + verify token), verify-email, signin (compare + issue JWT)
+- [ ] `src/services/authService.js`: signin (compare + issue JWT), changePassword; `src/services/employeeService.js`: invite (generate temp password, force change on first login)
 - [ ] `src/services/employeeService.js`: profile get/edit (field allowlist by role)
 - [ ] `src/services/attendanceService.js`: `deriveStatus()`, check-in/out (idempotent on `employee+date`)
 - [ ] `src/routes/auth.js`, `src/routes/employees.js`, `src/routes/attendance.js`
