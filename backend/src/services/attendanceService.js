@@ -1,10 +1,12 @@
 const prisma = require('../lib/prisma');
 const { badRequest, conflict } = require('../lib/errors');
 
+// Prisma stores `@db.Date` columns using the UTC date portion of the JS Date,
+// so the day boundary must be computed in UTC — using local setHours() shifted
+// the stored date by a day whenever the server's local timezone wasn't UTC.
 function startOfDay(date = new Date()) {
   const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
 }
 
 function deriveStatus({ checkIn, checkOut }) {

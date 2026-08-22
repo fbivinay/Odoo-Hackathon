@@ -5,9 +5,7 @@ const prisma = new PrismaClient();
 
 function daysAgo(n) {
   const d = new Date();
-  d.setDate(d.getDate() - n);
-  d.setHours(0, 0, 0, 0);
-  return d;
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - n));
 }
 
 async function main() {

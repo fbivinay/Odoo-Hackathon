@@ -15,6 +15,20 @@ This file is the execution checklist AND the architecture reference — schema, 
 
 ---
 
+## Backend integration status (read this first, B)
+
+- **Base URL (deployed, use this):** `https://odoo-hackathon-6c9z.onrender.com` — live, verified working end to end.
+- **Base URL (local dev fallback):** `http://localhost:4000`, if the backend owner is running it locally for faster iteration.
+- All routes are under `/api/*` — see §2 for the full contract. Health check: `GET /health`.
+- **Free-tier note:** Render's free instance sleeps after ~15 min idle — the first request after a gap can take up to ~30s to wake it up. Hit `/health` a minute before demoing or testing to warm it up.
+- **Auth header:** every non-auth request needs `Authorization: Bearer <token>`. Get the token from `POST /api/auth/signin` (`data.token` in the response).
+- **This is real data, not mocks.** All 19 endpoints are live against the shared Neon Postgres DB and have been verified end to end (signup → verify → signin → check-in → apply leave → admin approve, plus every admin CRUD route, RBAC 401/403, and CORS from `http://localhost:5173`). Build directly against the real API — no need to fake responses.
+- **Seeded logins** (`Password123` for all): `admin@dayflow.dev` (HR_ADMIN), `employee1@dayflow.dev` ... `employee8@dayflow.dev` (EMPLOYEE).
+- **Public signup always creates role `EMPLOYEE`** — there is no role field in the signup form; admin accounts only come from the seed data or an admin promoting someone via `PATCH /api/admin/employees/:id`.
+- **CORS:** currently allows `http://localhost:5173` only. If you deploy the frontend anywhere else, tell A so the `CORS_ORIGIN` env var on Render gets updated to match — otherwise every request will fail with a CORS error.
+
+---
+
 ## 0. Requirement coverage map
 
 Every item below is copied from the PDF (§3.1–3.6) so you can tick it off directly against the brief, not against a paraphrase of it.
