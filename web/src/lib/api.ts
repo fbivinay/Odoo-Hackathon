@@ -15,7 +15,16 @@ export class ApiError extends Error {
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? '/api'
+const API_ORIGIN = BASE.replace(/\/api\/?$/, '')
 export const USE_MOCKS = import.meta.env.VITE_USE_MOCKS !== 'false'
+
+// Uploads are served from the API origin's root, not under /api — and mocks hand back a
+// blob: URL from the browser's own memory, which is already absolute.
+export function resolvePhotoUrl(photoUrl: string | null | undefined): string | undefined {
+  if (!photoUrl) return undefined
+  if (/^(https?:|blob:|data:)/.test(photoUrl)) return photoUrl
+  return `${API_ORIGIN}${photoUrl}`
+}
 
 export async function api<T>(
   path: string,

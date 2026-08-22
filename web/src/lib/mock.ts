@@ -1,7 +1,7 @@
-import { toISODate } from './format'
-import { decodeToken, getToken } from './token'
-import { DESIGNATIONS_BY_DEPARTMENT, type Department } from './orgStructure'
-import { type Shift } from './shifts'
+import { toISODate } from './format.ts'
+import { decodeToken, getToken } from './token.ts'
+import { DESIGNATIONS_BY_DEPARTMENT, type Department } from './orgStructure.ts'
+import { type Shift } from './shifts.ts'
 import type { AdminAttendanceRow, AdminLeaveRow, Attendance, AttendanceStatus, Employee, Leave, LeaveStatus, LeaveType, Payroll } from '@/types'
 
 const LATENCY = 300
@@ -70,14 +70,14 @@ for (const r of ROLE_PLAN) {
 // The same 50-role shape, staffed three times over — one crew per shift, the way a 24/7
 // operation actually covers its roles round the clock.
 const ROLE_PLAN_EXPANDED = ROLE_PLAN.flatMap((r) => Array.from({ length: r.count }, () => r))
-const ROLES = [...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED]
+export const ROLES = [...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED]
 
 const SHIFTS_PER_BLOCK: Shift[] = ['Shift 1', 'Shift 2', 'Shift 3']
 function shiftFor(i: number): Shift {
   return SHIFTS_PER_BLOCK[Math.floor(i / 50)]
 }
 
-const NAMES = [
+export const NAMES = [
   // Shift 1 roster
   'Aarav Sharma', 'Vivaan Gupta', 'Aditya Verma', 'Vihaan Mehta', 'Arjun Nair',
   'Sai Reddy', 'Reyansh Iyer', 'Krishna Rao', 'Ishaan Kapoor', 'Rohan Malhotra',
@@ -470,6 +470,15 @@ export async function mockRequest<T>(
     user.password = body.newPassword
     user.mustChangePassword = false
     return { id: user.id } as T
+  }
+
+  // No real storage in mock mode — a blob: URL keeps the uploaded image visible for the
+  // rest of this tab's session, same as the real endpoint keeps it until the next deploy.
+  if (route === '/me/photo' && method === 'POST') {
+    const user = self()
+    const file = (init.body as FormData).get('photo')
+    if (file instanceof File) user.photoUrl = URL.createObjectURL(file)
+    return strip(user) as T
   }
 
   const me = self()

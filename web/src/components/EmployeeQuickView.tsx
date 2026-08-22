@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
@@ -10,15 +9,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { EmployeeAvatar } from '@/components/EmployeeAvatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { api, ApiError } from '@/lib/api'
 import { formatDate } from '@/lib/format'
 import type { Employee } from '@/types'
-
-function initials(name: string) {
-  return name.split(' ').map((p) => p[0]).slice(0, 2).join('')
-}
 
 function Field({ label, value }: { label: string; value: string }) {
   return (
@@ -76,11 +72,7 @@ export function EmployeeQuickView({ employeeId, children }: Props) {
             <DialogHeader>
               <DialogTitle className="sr-only">{employee.name}</DialogTitle>
               <div className="flex items-center gap-3">
-                <Avatar className="size-12">
-                  <AvatarFallback className="bg-indigo-100 text-sm font-medium text-indigo-700">
-                    {initials(employee.name)}
-                  </AvatarFallback>
-                </Avatar>
+                <EmployeeAvatar name={employee.name} photoUrl={employee.photoUrl} className="size-12" fallbackClassName="text-sm" />
                 <div>
                   <p className="text-base font-medium">{employee.name}</p>
                   <div className="mt-0.5 flex items-center gap-1.5">

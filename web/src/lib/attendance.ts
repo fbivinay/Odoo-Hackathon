@@ -1,4 +1,4 @@
-import { asISODate, toISODate } from './format'
+import { asISODate, toISODate } from './format.ts'
 import type { Attendance, DisplayStatus } from '@/types'
 
 export const STATUS_META: Record<DisplayStatus, { label: string; bar: string; pill: string }> = {
@@ -47,6 +47,44 @@ export interface RibbonDay {
   status: DisplayStatus
   checkIn: string | null
   checkOut: string | null
+}
+
+export interface WeekSummary {
+  weekStart: string
+  weekEnd: string
+  present: number
+  halfDay: number
+  leave: number
+  absent: number
+}
+
+function mondayOf(isoDate: string): Date {
+  const d = new Date(`${isoDate}T00:00:00`)
+  const day = d.getDay()
+  d.setDate(d.getDate() + (day === 0 ? -6 : 1 - day))
+  return d
+}
+
+// Buckets attendance rows into Mon-Sun weeks. Weeks with no rows at all (nobody hired yet,
+// or the range doesn't reach that far back) simply don't appear — nothing to summarize.
+export function groupByWeek(records: Attendance[]): WeekSummary[] {
+  const byWeek = new Map<string, WeekSummary>()
+  for (const r of records) {
+    const monday = mondayOf(asISODate(r.date))
+    const key = toISODate(monday)
+    let week = byWeek.get(key)
+    if (!week) {
+      const sunday = new Date(monday)
+      sunday.setDate(sunday.getDate() + 6)
+      week = { weekStart: key, weekEnd: toISODate(sunday), present: 0, halfDay: 0, leave: 0, absent: 0 }
+      byWeek.set(key, week)
+    }
+    if (r.status === 'PRESENT') week.present++
+    else if (r.status === 'HALF_DAY') week.halfDay++
+    else if (r.status === 'LEAVE') week.leave++
+    else week.absent++
+  }
+  return [...byWeek.values()].sort((a, b) => (a.weekStart < b.weekStart ? 1 : -1))
 }
 
 // Fills gaps (weekends, days with no attendance row) so the ribbon always shows a fixed window.
