@@ -125,6 +125,7 @@
     }
   html {
     @apply font-sans;
+    zoom: 1.25;
     }
 }
 /* Design tokens per architecture spec 8.2: zinc neutral, single indigo accent, Inter, 8px radius */
