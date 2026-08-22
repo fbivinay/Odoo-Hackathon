@@ -4,7 +4,7 @@ Monorepo for the Odoo Hackathon project.
 
 ## Structure
 - `backend/` — API, server, database, business logic
-- `frontend/` — Web/mobile client (to be added)
+- `frontend/` — React + Vite web client (see `frontend/README.md`)
 
 ## Getting Started
 

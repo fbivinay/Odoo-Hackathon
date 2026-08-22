@@ -34,3 +34,8 @@ build/
 # Logs
 logs/
 *.log
+
+# Vite / frontend
+dist-ssr/
+.vite/
+*.local
