@@ -218,9 +218,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
                 </div>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="shift">
-                  Shift <span className="text-rose-600">*</span>
-                </Label>
+                <Label htmlFor="shift">Shift</Label>
                 <Select value={shift} onValueChange={setShift} required>
                   <SelectTrigger id="shift" className="w-full">
                     <SelectValue placeholder="Select shift" />
