@@ -15,6 +15,13 @@ const PasswordInput = React.forwardRef<
       <Input
         ref={ref}
         type={visible ? "text" : "password"}
+        // Revealing the value flips the field to type="text", which some mobile
+        // keyboards and browser spellcheck engines treat as ordinary text and may
+        // send off-device for suggestions — type="password" is exempt by
+        // convention, a toggled-to-text password field is not unless told so.
+        spellCheck={false}
+        autoCorrect="off"
+        autoCapitalize="off"
         className={cn("pr-9", className)}
         {...props}
       />
