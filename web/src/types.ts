@@ -17,6 +17,7 @@ export interface Employee {
   photoUrl: string | null
   jobTitle: string | null
   department: string | null
+  shift: string | null
   emailVerified: boolean
   mustChangePassword: boolean
   createdAt: string

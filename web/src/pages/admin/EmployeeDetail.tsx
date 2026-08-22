@@ -21,6 +21,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { api, ApiError } from '@/lib/api'
 import { formatDate, formatINR, toISODate } from '@/lib/format'
 import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
+import { SHIFTS } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import type { Employee, Payroll, Role } from '@/types'
 
@@ -110,7 +111,7 @@ export function EmployeeDetail() {
   const emp = useApi<Employee>(`/admin/employees/${id}`)
   const history = useApi<Payroll[]>(`/admin/payroll/${id}/history`)
   const [editing, setEditing] = useState(false)
-  const [form, setForm] = useState({ jobTitle: '', department: '', role: 'EMPLOYEE' as Role })
+  const [form, setForm] = useState({ jobTitle: '', department: '', shift: '', role: 'EMPLOYEE' as Role })
   const [busy, setBusy] = useState(false)
 
   const employee = emp.data
@@ -118,7 +119,12 @@ export function EmployeeDetail() {
 
   function startEdit() {
     if (!employee) return
-    setForm({ jobTitle: employee.jobTitle ?? '', department: employee.department ?? '', role: employee.role })
+    setForm({
+      jobTitle: employee.jobTitle ?? '',
+      department: employee.department ?? '',
+      shift: employee.shift ?? '',
+      role: employee.role,
+    })
     setEditing(true)
   }
 
@@ -230,6 +236,21 @@ export function EmployeeDetail() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
+                  <Label htmlFor="shift">Shift</Label>
+                  <Select value={form.shift} onValueChange={(v) => setForm((f) => ({ ...f, shift: v }))}>
+                    <SelectTrigger id="shift" className="w-full">
+                      <SelectValue placeholder="Select shift" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SHIFTS.map((s) => (
+                        <SelectItem key={s} value={s}>
+                          {s}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
                   <Label htmlFor="role">Role</Label>
                   <Select value={form.role} onValueChange={(v) => setForm((f) => ({ ...f, role: v as Role }))}>
                     <SelectTrigger id="role" className="w-full">
@@ -260,6 +281,10 @@ export function EmployeeDetail() {
               <div>
                 <p className="text-xs text-muted-foreground">Department</p>
                 <p className="mt-0.5 text-sm">{employee.department ?? '—'}</p>
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground">Shift</p>
+                <p className="mt-0.5 text-sm">{employee.shift ?? '—'}</p>
               </div>
               <div>
                 <p className="text-xs text-muted-foreground">Phone</p>

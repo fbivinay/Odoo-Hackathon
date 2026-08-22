@@ -1,6 +1,7 @@
 import { toISODate } from './format'
 import { decodeToken, getToken } from './token'
 import { DESIGNATIONS_BY_DEPARTMENT, type Department } from './orgStructure'
+import { type Shift } from './shifts'
 import type { AdminAttendanceRow, AdminLeaveRow, Attendance, AttendanceStatus, Employee, Leave, LeaveStatus, LeaveType, Payroll } from '@/types'
 
 const LATENCY = 300
@@ -66,9 +67,18 @@ for (const r of ROLE_PLAN) {
   }
 }
 
-const ROLES = ROLE_PLAN.flatMap((r) => Array.from({ length: r.count }, () => r))
+// The same 50-role shape, staffed three times over — one crew per shift, the way a 24/7
+// operation actually covers its roles round the clock.
+const ROLE_PLAN_EXPANDED = ROLE_PLAN.flatMap((r) => Array.from({ length: r.count }, () => r))
+const ROLES = [...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED, ...ROLE_PLAN_EXPANDED]
+
+const SHIFTS_PER_BLOCK: Shift[] = ['Shift 1', 'Shift 2', 'Shift 3']
+function shiftFor(i: number): Shift {
+  return SHIFTS_PER_BLOCK[Math.floor(i / 50)]
+}
 
 const NAMES = [
+  // Shift 1 roster
   'Aarav Sharma', 'Vivaan Gupta', 'Aditya Verma', 'Vihaan Mehta', 'Arjun Nair',
   'Sai Reddy', 'Reyansh Iyer', 'Krishna Rao', 'Ishaan Kapoor', 'Rohan Malhotra',
   'Kabir Singh', 'Aryan Chauhan', 'Dhruv Rathore', 'Yash Thakur', 'Karan Bose',
@@ -79,10 +89,35 @@ const NAMES = [
   'Anika Joshi', 'Navya Chatterjee', 'Kiara Banerjee', 'Riya Mukherjee', 'Ishita Sengupta',
   'Meera Pillai', 'Priya Nambiar', 'Sneha Subramaniam', 'Divya Krishnamurthy', 'Pooja Venkatesh',
   'Neha Kaur', 'Simran Gill', 'Harpreet Sandhu', 'Kavya Ramesh', 'Tanvi Desai',
+  // Shift 2 roster
+  'Rajat Malviya', 'Ashwin Pandey', 'Gaurav Mishra', 'Sandeep Yadav', 'Anil Kumar',
+  'Vishal Saxena', 'Ajay Chopra', 'Naveen Ahuja', 'Ramesh Iyer', 'Prakash Nayak',
+  'Girish Kamath', 'Harish Shetty', 'Vinod Kambli', 'Sanjay Gaikwad', 'Mahesh Bhosale',
+  'Ashok Wagh', 'Vijay Naik', 'Ramesh Salvi', 'Prasad Kulkarni', 'Nitin Joshi',
+  'Abhishek Tripathi', 'Manish Dubey', 'Anurag Srivastava', 'Kunal Bhatnagar', 'Rohit Saini',
+  'Vishnu Prasad', 'Ramachandran Pillai', 'Venkatesh Iyer', 'Srinivasan Raman', 'Gopalakrishnan Nair',
+  'Karthik Subramanian', 'Suresh Babu', 'Anand Vaidya', 'Mohan Rao', 'Kiran Kulkarni',
+  'Sunil Deshpande', 'Ramesh Gowda', 'Prakash Hegde', 'Nagesh Poojary', 'Vasanth Kumar',
+  'Farhan Sheikh', 'Imran Khan', 'Ayaan Ansari', 'Zaid Qureshi', 'Sameer Baig',
+  'Tariq Malik', 'Waseem Ahmed', 'Salman Sheikh', 'Irfan Sheikh', 'Rizwan Sayed',
+  // Shift 3 roster
+  'Pallavi Kelkar', 'Snehal More', 'Vaishali Pawar', 'Manisha Chavan', 'Sarita Gaikwad',
+  'Kalpana Naik', 'Rekha Sawant', 'Sushma Rane', 'Sunita Kadam', 'Nalini Bhagat',
+  'Lakshmi Narayanan', 'Kavitha Raghavan', 'Deepa Krishnamoorthy', 'Radha Chandrasekaran', 'Uma Balasubramaniam',
+  'Shanthi Rajagopal', 'Padma Vishwanathan', 'Geetha Sundaram', 'Malathi Ramaswamy', 'Vidya Ananthakrishnan',
+  'Ritu Verma', 'Shalini Kapoor', 'Preeti Chawla', 'Anjali Bhatia', 'Nidhi Arora',
+  'Swati Malhotra', 'Rashmi Sharma', 'Sonal Mehra', 'Meenal Kulkarni', 'Aparna Rao',
+  'Bhavna Shah', 'Chandni Doshi', 'Falguni Trivedi', 'Hetal Shah', 'Jigna Modi',
+  'Komal Vora', 'Mitali Parikh', 'Payal Thakkar', 'Ruchi Bhatt', 'Trishna Patel',
+  'Amardeep Bajwa', 'Baljeet Grewal', 'Charanjeet Dhillon', 'Dilpreet Kaur', 'Ekamjot Sidhu',
+  'Gagandeep Brar', 'Jasmeet Randhawa', 'Kulwant Sekhon', 'Lovepreet Chahal', 'Mandeep Kaler',
 ] as const
 
 if (NAMES.length !== ROLES.length) {
   throw new Error(`mock.ts: NAMES (${NAMES.length}) and ROLES (${ROLES.length}) must be the same length`)
+}
+if (new Set(NAMES).size !== NAMES.length) {
+  throw new Error('mock.ts: NAMES contains a duplicate full name')
 }
 
 const CITIES = [
@@ -138,6 +173,7 @@ const employees: MockUser[] = NAMES.map((name, i) => {
     photoUrl: null,
     jobTitle: role.designation,
     department: role.department,
+    shift: shiftFor(i),
     emailVerified: true,
     mustChangePassword: false,
     createdAt: joinDateFor(rand, role.level).toISOString(),
@@ -156,6 +192,7 @@ const admin: MockUser = {
   photoUrl: null,
   jobTitle: 'HR Manager',
   department: 'People Ops',
+  shift: null,
   emailVerified: true,
   mustChangePassword: false,
   createdAt: '2021-04-01T09:00:00Z',
@@ -172,8 +209,11 @@ function deriveStatus(checkIn: string | null, checkOut: string | null): Attendan
   return hours < 4 ? 'HALF_DAY' : 'PRESENT'
 }
 
-// Nobody has attendance before their join date, and Mondays/Fridays skew slightly more
-// absent than midweek — both true of real offices, neither true of the old flat random roll.
+const SHIFT_START_HOUR: Record<string, number> = { 'Shift 1': 6, 'Shift 2': 14, 'Shift 3': 22 }
+
+// Nobody has attendance before their join date, Mondays/Fridays skew slightly more absent
+// than midweek, and check-in time actually follows the employee's assigned shift instead of
+// everyone clocking in at a uniform 9am regardless of which shift they're on.
 function seedAttendance(employee: MockUser, days: number): Attendance[] {
   const out: Attendance[] = []
   const rand = rngFor(employee.employeeId.charCodeAt(employee.employeeId.length - 1) + days)
@@ -197,8 +237,9 @@ function seedAttendance(employee: MockUser, days: number): Attendance[] {
       continue
     }
 
+    const startHour = SHIFT_START_HOUR[employee.shift ?? ''] ?? 9
     const checkIn = new Date(d)
-    checkIn.setHours(9, Math.floor(rand() * 45), 0, 0)
+    checkIn.setHours(startHour, Math.floor(rand() * 45), 0, 0)
     const isHalfDay = !isToday && rand() < 0.06
     const hours = isHalfDay ? 3 + rand() : 8 + rand() * 1.5
     const checkOutDate = new Date(checkIn.getTime() + hours * 3600_000)
@@ -410,6 +451,7 @@ export async function mockRequest<T>(
       photoUrl: null,
       jobTitle: (body as unknown as { jobTitle?: string }).jobTitle ?? null,
       department: (body as unknown as { department?: string }).department ?? null,
+      shift: (body as unknown as { shift?: string }).shift ?? null,
       emailVerified: true,
       mustChangePassword: true,
       createdAt: new Date().toISOString(),

@@ -95,6 +95,7 @@ export function EmployeeQuickView({ employeeId, children }: Props) {
             <div className="grid grid-cols-2 gap-4 pt-1">
               <Field label="Department" value={employee.department ?? ''} />
               <Field label="Designation" value={employee.jobTitle ?? ''} />
+              <Field label="Shift" value={employee.shift ?? ''} />
               <Field label="Email" value={employee.email} />
               <Field label="Phone" value={employee.phone ?? ''} />
               <Field label="Joined" value={formatDate(employee.createdAt)} />

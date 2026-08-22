@@ -21,6 +21,7 @@ import { downloadCSV, toCSV } from '@/lib/csv'
 import { api, ApiError } from '@/lib/api'
 import { formatDate, toISODate } from '@/lib/format'
 import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
+import { SHIFTS } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import { useDebounced } from '@/lib/useDebounced'
 import type { ColumnDef } from '@tanstack/react-table'
@@ -33,6 +34,7 @@ const columns: ColumnDef<Employee, any>[] = [
   { accessorKey: 'employeeId', header: 'Employee ID' },
   { accessorKey: 'department', header: 'Department', cell: ({ row }) => row.original.department ?? '—' },
   { accessorKey: 'jobTitle', header: 'Title', cell: ({ row }) => row.original.jobTitle ?? '—' },
+  { accessorKey: 'shift', header: 'Shift', cell: ({ row }) => row.original.shift ?? '—' },
   {
     accessorKey: 'role',
     header: 'Role',
@@ -57,6 +59,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
   const [role, setRole] = useState<Role>('EMPLOYEE')
   const [jobTitle, setJobTitle] = useState('')
   const [department, setDepartment] = useState('')
+  const [shift, setShift] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<InviteResult | null>(null)
@@ -68,6 +71,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
     setRole('EMPLOYEE')
     setJobTitle('')
     setDepartment('')
+    setShift('')
     setError(null)
     setResult(null)
   }
@@ -91,6 +95,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
           role,
           jobTitle: jobTitle || undefined,
           department: department || undefined,
+          shift: shift || undefined,
         },
       })
       setResult(data)
@@ -215,6 +220,21 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
                   </Select>
                 </div>
               </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="shift">Shift</Label>
+                <Select value={shift} onValueChange={setShift}>
+                  <SelectTrigger id="shift" className="w-full">
+                    <SelectValue placeholder="Select shift" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SHIFTS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {s}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               {error && <p className="text-xs text-rose-600">{error}</p>}
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
@@ -231,6 +251,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
 
 export function EmployeeList() {
   const [search, setSearch] = useState('')
+  const [shiftFilter, setShiftFilter] = useState('ALL')
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
   const debouncedSearch = useDebounced(search)
@@ -240,9 +261,12 @@ export function EmployeeList() {
     [debouncedSearch],
   )
 
-  useEffect(() => setPage(0), [debouncedSearch])
+  useEffect(() => setPage(0), [debouncedSearch, shiftFilter])
 
-  const all = useMemo(() => data ?? [], [data])
+  const all = useMemo(() => {
+    const rows = data ?? []
+    return shiftFilter === 'ALL' ? rows : rows.filter((e) => e.shift === shiftFilter)
+  }, [data, shiftFilter])
   const pageCount = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
   const rows = all.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
 
@@ -255,6 +279,7 @@ export function EmployeeList() {
         { header: 'Email', value: (e) => e.email },
         { header: 'Department', value: (e) => e.department },
         { header: 'Title', value: (e) => e.jobTitle },
+        { header: 'Shift', value: (e) => e.shift },
         { header: 'Role', value: (e) => e.role },
         { header: 'Phone', value: (e) => e.phone },
         { header: 'Joined', value: (e) => formatDate(e.createdAt) },
@@ -271,7 +296,7 @@ export function EmployeeList() {
             {loading ? 'Loading…' : `${all.length} ${all.length === 1 ? 'person' : 'people'}`}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <div className="relative w-64">
             <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -281,6 +306,19 @@ export function EmployeeList() {
               className="pl-8"
             />
           </div>
+          <Select value={shiftFilter} onValueChange={setShiftFilter}>
+            <SelectTrigger size="sm" className="w-32">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">All shifts</SelectItem>
+              {SHIFTS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Button size="sm" variant="outline" onClick={exportAll} disabled={all.length === 0}>
             <Download className="size-4" />
             Export
