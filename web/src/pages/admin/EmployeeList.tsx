@@ -96,7 +96,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
       setResult(data)
       onInvited()
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Could not invite employee.')
+      setError(err instanceof ApiError ? err.message : 'Could not add employee.')
     } finally {
       setBusy(false)
     }
@@ -119,7 +119,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
       <DialogTrigger asChild>
         <Button size="sm">
           <UserPlus className="size-4" />
-          Invite employee
+          Add employee
         </Button>
       </DialogTrigger>
       <DialogContent>
@@ -130,8 +130,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Share this temporary password with them directly (Slack, in person, etc.) — it will not be shown
-                again, and no email is sent. They'll be asked to set their own password on first sign-in.
+                Share this password with them directly — it won't be shown again.
               </p>
               <div className="flex items-center gap-2 rounded-md border bg-zinc-50 px-3 py-2">
                 <code className="flex-1 text-sm font-medium">{result.tempPassword}</code>
@@ -155,7 +154,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Invite employee</DialogTitle>
+              <DialogTitle>Add employee</DialogTitle>
             </DialogHeader>
             <form className="space-y-4" onSubmit={onSubmit}>
               <div className="grid grid-cols-2 gap-3">
@@ -219,7 +218,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
               {error && <p className="text-xs text-rose-600">{error}</p>}
               <DialogFooter>
                 <Button type="submit" disabled={busy}>
-                  {busy ? 'Inviting…' : 'Invite'}
+                  {busy ? 'Adding…' : 'Add employee'}
                 </Button>
               </DialogFooter>
             </form>
