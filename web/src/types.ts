@@ -74,3 +74,24 @@ export interface AuthResponse {
   token: string
   employee: Pick<Employee, 'id' | 'employeeId' | 'email' | 'role' | 'name' | 'mustChangePassword'>
 }
+
+// Matches GET /api/admin/payroll (payrollService.listCurrentForAll) — deliberately thin,
+// the backend selects only these fields for the roster-wide payroll view.
+export interface AdminPayrollSummary {
+  id: string
+  employeeId: string
+  name: string
+  department: string | null
+  jobTitle: string | null
+  payroll: Payroll | null
+}
+
+// Not backed by any real endpoint yet — GET /api/me/notifications doesn't exist on the
+// deployed backend. Shape matches the standing backend handoff notes so nothing changes
+// here once it ships. Requests against real prod are caught and treated as "no notifications".
+export interface Notification {
+  id: string
+  message: string
+  read: boolean
+  createdAt: string
+}

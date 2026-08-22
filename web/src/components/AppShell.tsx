@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { EmployeeAvatar } from '@/components/EmployeeAvatar'
+import { NotificationBell } from '@/components/NotificationBell'
 import { cn } from '@/lib/utils'
 
 const EMPLOYEE_NAV = [
@@ -37,6 +38,7 @@ const ADMIN_NAV = [
   { to: '/admin/employees', label: 'Employees', icon: Users },
   { to: '/admin/attendance', label: 'Attendance', icon: CalendarDays },
   { to: '/admin/leave', label: 'Leave approvals', icon: CalendarRange },
+  { to: '/admin/payroll', label: 'Payroll', icon: ReceiptIndianRupee },
 ]
 
 export function AppShell() {
@@ -47,7 +49,7 @@ export function AppShell() {
   if (!employee) return null
 
   const nav = employee.role === 'HR_ADMIN' ? ADMIN_NAV : EMPLOYEE_NAV
-  const activeLabel = nav.find((n) => n.to === pathname)?.label ?? 'Dayflow'
+  const activeLabel = pathname === '/notifications' ? 'Alerts' : nav.find((n) => n.to === pathname)?.label ?? 'Dayflow'
 
   function handleSignOut() {
     signOut()
@@ -124,6 +126,7 @@ export function AppShell() {
         <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-white/80 px-6 backdrop-blur">
           <h1 className="text-sm font-medium">{activeLabel}</h1>
           <div className="flex items-center gap-3">
+            <NotificationBell />
             <div className="hidden text-right leading-tight sm:block">
               <p className="text-xs font-medium">{employee.name}</p>
               <p className="text-[11px] text-muted-foreground">{employee.email}</p>

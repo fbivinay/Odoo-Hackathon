@@ -13,12 +13,14 @@ const Profile = lazy(() => import('@/pages/Profile').then((m) => ({ default: m.P
 const Attendance = lazy(() => import('@/pages/Attendance').then((m) => ({ default: m.Attendance })))
 const Leave = lazy(() => import('@/pages/Leave').then((m) => ({ default: m.Leave })))
 const Payroll = lazy(() => import('@/pages/Payroll').then((m) => ({ default: m.Payroll })))
+const Notifications = lazy(() => import('@/pages/Notifications').then((m) => ({ default: m.Notifications })))
 const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard').then((m) => ({ default: m.AdminDashboard })))
 const Analytics = lazy(() => import('@/pages/admin/Analytics').then((m) => ({ default: m.Analytics })))
 const EmployeeList = lazy(() => import('@/pages/admin/EmployeeList').then((m) => ({ default: m.EmployeeList })))
 const EmployeeDetail = lazy(() => import('@/pages/admin/EmployeeDetail').then((m) => ({ default: m.EmployeeDetail })))
 const AttendanceGrid = lazy(() => import('@/pages/admin/AttendanceGrid').then((m) => ({ default: m.AttendanceGrid })))
 const LeaveQueue = lazy(() => import('@/pages/admin/LeaveQueue').then((m) => ({ default: m.LeaveQueue })))
+const AdminPayroll = lazy(() => import('@/pages/admin/Payroll').then((m) => ({ default: m.AdminPayroll })))
 
 function RouteFallback() {
   return (
@@ -56,6 +58,13 @@ export default function App() {
                 <Route path="/admin/employees/:id" element={<EmployeeDetail />} />
                 <Route path="/admin/attendance" element={<AttendanceGrid />} />
                 <Route path="/admin/leave" element={<LeaveQueue />} />
+                <Route path="/admin/payroll" element={<AdminPayroll />} />
+              </Route>
+            </Route>
+
+            <Route element={<ProtectedRoute anyRole />}>
+              <Route element={<AppShell />}>
+                <Route path="/notifications" element={<Notifications />} />
               </Route>
             </Route>
 

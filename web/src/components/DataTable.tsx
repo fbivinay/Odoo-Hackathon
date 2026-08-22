@@ -26,6 +26,7 @@ interface Props<T> {
   skeletonRows?: number
   empty?: ReactNode
   onRowClick?: (row: T) => void
+  initialSorting?: SortingState
 }
 
 export function DataTable<T>({
@@ -35,8 +36,9 @@ export function DataTable<T>({
   skeletonRows = 6,
   empty,
   onRowClick,
+  initialSorting = [],
 }: Props<T>) {
-  const [sorting, setSorting] = useState<SortingState>([])
+  const [sorting, setSorting] = useState<SortingState>(initialSorting)
 
   const table = useReactTable({
     data,

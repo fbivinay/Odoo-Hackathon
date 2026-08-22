@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { toast } from 'sonner'
-import { ChevronLeft, ChevronRight, Copy, Download, Search, UserPlus, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Copy, Download, Search, UserPlus, Users, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -17,24 +17,40 @@ import { EmptyState } from '@/components/EmptyState'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ShiftStatBoxes } from '@/components/ShiftStatBoxes'
 import { downloadCSV, toCSV } from '@/lib/csv'
 import { api, ApiError } from '@/lib/api'
-import { formatDate, toISODate } from '@/lib/format'
+import { asISODate, formatDate, formatINR, toISODate } from '@/lib/format'
 import { DEPARTMENTS, designationsFor } from '@/lib/orgStructure'
 import { SHIFTS } from '@/lib/shifts'
 import { useApi } from '@/lib/useApi'
 import { useDebounced } from '@/lib/useDebounced'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { Employee, Role } from '@/types'
+import type { AdminPayrollSummary, Employee, Role } from '@/types'
 
 const PAGE_SIZE = 25
+const ALL = 'ALL'
 
-const columns: ColumnDef<Employee, any>[] = [
-  { accessorKey: 'name', header: 'Name' },
+interface Row extends Employee {
+  salary: number | null
+}
+
+const columns: ColumnDef<Row, any>[] = [
   { accessorKey: 'employeeId', header: 'Employee ID' },
+  { accessorKey: 'name', header: 'Name' },
   { accessorKey: 'department', header: 'Department', cell: ({ row }) => row.original.department ?? '—' },
   { accessorKey: 'jobTitle', header: 'Title', cell: ({ row }) => row.original.jobTitle ?? '—' },
   { accessorKey: 'shift', header: 'Shift', cell: ({ row }) => row.original.shift ?? '—' },
+  {
+    accessorKey: 'createdAt',
+    header: 'Joined',
+    cell: ({ row }) => formatDate(row.original.createdAt),
+  },
+  {
+    accessorKey: 'salary',
+    header: 'Salary',
+    cell: ({ row }) => (row.original.salary === null ? '—' : formatINR(row.original.salary)),
+  },
   {
     accessorKey: 'role',
     header: 'Role',
@@ -46,11 +62,6 @@ const columns: ColumnDef<Employee, any>[] = [
   },
 ]
 
-interface InviteResult {
-  employee: Employee
-  tempPassword: string
-}
-
 function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
@@ -61,7 +72,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
   const [shift, setShift] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
-  const [result, setResult] = useState<InviteResult | null>(null)
+  const [result, setResult] = useState<{ employee: Employee; tempPassword: string } | null>(null)
 
   function reset() {
     setEmail('')
@@ -88,7 +99,7 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
     setBusy(true)
     setError(null)
     try {
-      const data = await api<InviteResult>('/admin/employees/invite', {
+      const data = await api<{ employee: Employee; tempPassword: string }>('/admin/employees/invite', {
         method: 'POST',
         body: {
           email,
@@ -248,7 +259,13 @@ function InviteEmployeeDialog({ onInvited }: { onInvited: () => void }) {
 
 export function EmployeeList() {
   const [search, setSearch] = useState('')
-  const [shiftFilter, setShiftFilter] = useState('ALL')
+  const [shiftFilter, setShiftFilter] = useState(ALL)
+  const [departmentFilter, setDepartmentFilter] = useState(ALL)
+  const [titleFilter, setTitleFilter] = useState(ALL)
+  const [joinedAfter, setJoinedAfter] = useState('')
+  const [joinedBefore, setJoinedBefore] = useState('')
+  const [salaryMin, setSalaryMin] = useState('')
+  const [salaryMax, setSalaryMax] = useState('')
   const [page, setPage] = useState(0)
   const navigate = useNavigate()
   const debouncedSearch = useDebounced(search)
@@ -257,44 +274,101 @@ export function EmployeeList() {
     `/admin/employees${debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : ''}`,
     [debouncedSearch],
   )
+  const payroll = useApi<AdminPayrollSummary[]>('/admin/payroll')
 
-  useEffect(() => setPage(0), [debouncedSearch, shiftFilter])
+  useEffect(() => {
+    setPage(0)
+  }, [debouncedSearch, shiftFilter, departmentFilter, titleFilter, joinedAfter, joinedBefore, salaryMin, salaryMax])
 
-  const all = useMemo(() => {
-    const rows = data ?? []
-    return shiftFilter === 'ALL' ? rows : rows.filter((e) => e.shift === shiftFilter)
-  }, [data, shiftFilter])
-  const pageCount = Math.max(1, Math.ceil(all.length / PAGE_SIZE))
-  const rows = all.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const salaryById = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const p of payroll.data ?? []) {
+      if (p.payroll) map.set(p.id, parseFloat(p.payroll.baseSalary))
+    }
+    return map
+  }, [payroll.data])
+
+  const withSalary = useMemo<Row[]>(
+    () => (data ?? []).map((e) => ({ ...e, salary: salaryById.get(e.id) ?? null })),
+    [data, salaryById],
+  )
+
+  const titleOptions = useMemo(
+    () => [...new Set(withSalary.map((e) => e.jobTitle).filter((t): t is string => Boolean(t)))].sort(),
+    [withSalary],
+  )
+
+  const filtered = useMemo(() => {
+    const min = salaryMin ? Number(salaryMin) : null
+    const max = salaryMax ? Number(salaryMax) : null
+    return withSalary.filter((e) => {
+      if (shiftFilter !== ALL && e.shift !== shiftFilter) return false
+      if (departmentFilter !== ALL && e.department !== departmentFilter) return false
+      if (titleFilter !== ALL && e.jobTitle !== titleFilter) return false
+      if (joinedAfter && asISODate(e.createdAt) < joinedAfter) return false
+      if (joinedBefore && asISODate(e.createdAt) > joinedBefore) return false
+      if (min !== null && (e.salary === null || e.salary < min)) return false
+      if (max !== null && (e.salary === null || e.salary > max)) return false
+      return true
+    })
+  }, [withSalary, shiftFilter, departmentFilter, titleFilter, joinedAfter, joinedBefore, salaryMin, salaryMax])
+
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
+  const rows = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+
+  const filtersActive =
+    shiftFilter !== ALL ||
+    departmentFilter !== ALL ||
+    titleFilter !== ALL ||
+    joinedAfter !== '' ||
+    joinedBefore !== '' ||
+    salaryMin !== '' ||
+    salaryMax !== ''
+
+  function clearFilters() {
+    setShiftFilter(ALL)
+    setDepartmentFilter(ALL)
+    setTitleFilter(ALL)
+    setJoinedAfter('')
+    setJoinedBefore('')
+    setSalaryMin('')
+    setSalaryMax('')
+  }
 
   function exportAll() {
     downloadCSV(
       `employees-${toISODate(new Date())}`,
-      toCSV(all, [
-        { header: 'Name', value: (e) => e.name },
+      toCSV(filtered, [
         { header: 'Employee ID', value: (e) => e.employeeId },
+        { header: 'Name', value: (e) => e.name },
         { header: 'Email', value: (e) => e.email },
         { header: 'Department', value: (e) => e.department },
         { header: 'Title', value: (e) => e.jobTitle },
         { header: 'Shift', value: (e) => e.shift },
+        { header: 'Joined', value: (e) => formatDate(e.createdAt) },
+        { header: 'Salary', value: (e) => e.salary },
         { header: 'Role', value: (e) => e.role },
         { header: 'Phone', value: (e) => e.phone },
-        { header: 'Joined', value: (e) => formatDate(e.createdAt) },
       ]),
     )
   }
 
   return (
     <div className="space-y-4">
+      <ShiftStatBoxes
+        loading={loading}
+        metricsForShift={(shift) => [{ label: 'Employees', value: (data ?? []).filter((e) => e.shift === shift).length }]}
+      />
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-base font-medium">Employees</h2>
           <p className="text-xs text-muted-foreground">
-            {loading ? 'Loading…' : `${all.length} ${all.length === 1 ? 'person' : 'people'}`}
+            {loading ? 'Loading…' : `${filtered.length} of ${(data ?? []).length} people`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className="relative w-64">
+          <div className="relative w-56">
             <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-muted-foreground" />
             <Input
               value={search}
@@ -303,20 +377,7 @@ export function EmployeeList() {
               className="pl-8"
             />
           </div>
-          <Select value={shiftFilter} onValueChange={setShiftFilter}>
-            <SelectTrigger size="sm" className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ALL">All shifts</SelectItem>
-              {SHIFTS.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {s}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant="outline" onClick={exportAll} disabled={all.length === 0}>
+          <Button size="sm" variant="outline" onClick={exportAll} disabled={filtered.length === 0}>
             <Download className="size-4" />
             Export
           </Button>
@@ -324,15 +385,111 @@ export function EmployeeList() {
         </div>
       </div>
 
+      <div className="flex flex-wrap items-end gap-2 rounded-lg border border-border bg-card p-3">
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Shift</Label>
+          <Select value={shiftFilter} onValueChange={setShiftFilter}>
+            <SelectTrigger size="sm" className="w-28">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All shifts</SelectItem>
+              {SHIFTS.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Department</Label>
+          <Select value={departmentFilter} onValueChange={setDepartmentFilter}>
+            <SelectTrigger size="sm" className="w-36">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All departments</SelectItem>
+              {DEPARTMENTS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Title</Label>
+          <Select value={titleFilter} onValueChange={setTitleFilter}>
+            <SelectTrigger size="sm" className="w-40">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL}>All titles</SelectItem>
+              {titleOptions.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {t}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Joined after</Label>
+          <input
+            type="date"
+            value={joinedAfter}
+            onChange={(e) => setJoinedAfter(e.target.value)}
+            className="flex h-8 w-36 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Joined before</Label>
+          <input
+            type="date"
+            value={joinedBefore}
+            onChange={(e) => setJoinedBefore(e.target.value)}
+            className="flex h-8 w-36 rounded-md border border-input bg-transparent px-2.5 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Salary min</Label>
+          <Input
+            type="number"
+            value={salaryMin}
+            onChange={(e) => setSalaryMin(e.target.value)}
+            placeholder="₹"
+            className="w-24"
+          />
+        </div>
+        <div className="space-y-1">
+          <Label className="text-[11px] text-muted-foreground">Salary max</Label>
+          <Input
+            type="number"
+            value={salaryMax}
+            onChange={(e) => setSalaryMax(e.target.value)}
+            placeholder="₹"
+            className="w-24"
+          />
+        </div>
+        {filtersActive && (
+          <Button size="sm" variant="ghost" onClick={clearFilters}>
+            <X className="size-3.5" />
+            Clear
+          </Button>
+        )}
+      </div>
+
       <DataTable
         columns={columns}
         data={rows}
         loading={loading}
+        initialSorting={[{ id: 'employeeId', desc: false }]}
         onRowClick={(e) => navigate(`/admin/employees/${e.id}`)}
         empty={
           <EmptyState
             icon={Users}
-            line={search ? 'No employees match that search.' : 'No employees yet.'}
+            line={filtersActive || search ? 'No employees match these filters.' : 'No employees yet.'}
           />
         }
       />
@@ -340,7 +497,7 @@ export function EmployeeList() {
       {pageCount > 1 && (
         <div className="flex items-center justify-between">
           <p className="text-xs text-muted-foreground tabular-nums">
-            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, all.length)} of {all.length}
+            {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, filtered.length)} of {filtered.length}
           </p>
           <div className="flex items-center gap-2">
             <Button

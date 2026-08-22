@@ -1,7 +1,7 @@
 import { toISODate } from './format.ts'
 import { decodeToken, getToken } from './token.ts'
 import { DESIGNATIONS_BY_DEPARTMENT, type Department } from './orgStructure.ts'
-import { type Shift } from './shifts.ts'
+import { SHIFT_START_HOUR, type Shift } from './shifts.ts'
 import type { AdminAttendanceRow, AdminLeaveRow, Attendance, AttendanceStatus, Employee, Leave, LeaveStatus, LeaveType, Payroll } from '@/types'
 
 const LATENCY = 300
@@ -209,8 +209,6 @@ function deriveStatus(checkIn: string | null, checkOut: string | null): Attendan
   return hours < 4 ? 'HALF_DAY' : 'PRESENT'
 }
 
-const SHIFT_START_HOUR: Record<string, number> = { 'Shift 1': 6, 'Shift 2': 14, 'Shift 3': 22 }
-
 // Nobody has attendance before their join date, Mondays/Fridays skew slightly more absent
 // than midweek, and check-in time actually follows the employee's assigned shift instead of
 // everyone clocking in at a uniform 9am regardless of which shift they're on.
@@ -237,7 +235,7 @@ function seedAttendance(employee: MockUser, days: number): Attendance[] {
       continue
     }
 
-    const startHour = SHIFT_START_HOUR[employee.shift ?? ''] ?? 9
+    const startHour = SHIFT_START_HOUR[employee.shift as Shift] ?? 9
     const checkIn = new Date(d)
     checkIn.setHours(startHour, Math.floor(rand() * 45), 0, 0)
     const isHalfDay = !isToday && rand() < 0.06
@@ -380,6 +378,24 @@ for (const [i, e] of allUsers.entries()) {
   }
 
   payroll.set(e.id, rows)
+}
+
+// Not backed by a real endpoint (see the Notification type's doc comment) — seeded here from
+// leave decisions that already exist in this mock, so the bell has something real to show in
+// demo/offline mode instead of sitting permanently empty.
+const notifications = new Map<string, { id: string; message: string; read: boolean; createdAt: string }[]>()
+let notificationSeq = 0
+for (const l of leave) {
+  if (l.status === 'PENDING') continue
+  const list = notifications.get(l.employeeId) ?? []
+  const verb = l.status === 'APPROVED' ? 'approved' : 'rejected'
+  list.push({
+    id: uid('ntf', ++notificationSeq),
+    message: `Your ${l.type.toLowerCase()} leave request (${l.startDate.slice(0, 10)} – ${l.endDate.slice(0, 10)}) was ${verb}.`,
+    read: false,
+    createdAt: l.createdAt,
+  })
+  notifications.set(l.employeeId, list)
 }
 
 function fail(code: string, message: string): never {
@@ -559,6 +575,18 @@ export async function mockRequest<T>(
     return rows[0] as T
   }
 
+  if (route === '/me/notifications' && method === 'GET') {
+    return (notifications.get(me.id) ?? []).sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1)) as T
+  }
+
+  if (route.startsWith('/me/notifications/') && route.endsWith('/read') && method === 'PATCH') {
+    const id = route.split('/')[3]
+    const list = notifications.get(me.id) ?? []
+    const note = list.find((n) => n.id === id) ?? fail('NOT_FOUND', 'Notification not found')
+    note.read = true
+    return note as T
+  }
+
   if (route === '/admin/employees' && method === 'GET') {
     const search = (q.get('search') ?? '').toLowerCase()
     return employees
@@ -614,6 +642,20 @@ export async function mockRequest<T>(
     row.decisionById = admin.id
     if (row.status === 'APPROVED') markLeaveAttendance(row)
     return row as T
+  }
+
+  if (route === '/admin/payroll' && method === 'GET') {
+    return allUsers.map((e) => {
+      const rows = [...(payroll.get(e.id) ?? [])].sort((a, b) => (a.effectiveDate < b.effectiveDate ? 1 : -1))
+      return {
+        id: e.id,
+        employeeId: e.employeeId,
+        name: e.name,
+        department: e.department,
+        jobTitle: e.jobTitle,
+        payroll: rows[0] ?? null,
+      }
+    }) as T
   }
 
   if (route === '/admin/payroll' && method === 'POST') {
