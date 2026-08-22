@@ -69,8 +69,7 @@ export function SignIn() {
               One place to run your whole workforce.
             </h1>
             <p className="max-w-sm text-sm text-zinc-400">
-              Attendance, leave, payroll, and people data — built for HR teams who'd rather manage people than
-              spreadsheets.
+              Attendance, leave, and payroll, all in one place, so HR can spend less time on busywork.
             </p>
           </div>
 
