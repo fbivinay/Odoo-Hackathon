@@ -44,6 +44,7 @@ const employees: MockUser[] = NAMES.map((name, i) => ({
   jobTitle: JOB_TITLES[i % JOB_TITLES.length],
   department: DEPARTMENTS[i % DEPARTMENTS.length],
   emailVerified: true,
+  mustChangePassword: false,
   createdAt: `202${2 + (i % 3)}-0${(i % 9) + 1}-1${i % 9}T09:00:00Z`,
   password: 'Password123',
 }))
@@ -60,6 +61,7 @@ const admin: MockUser = {
   jobTitle: 'HR Manager',
   department: 'People Ops',
   emailVerified: true,
+  mustChangePassword: false,
   createdAt: '2021-04-01T09:00:00Z',
   password: 'Password123',
 }
@@ -224,43 +226,55 @@ export async function mockRequest<T>(
   const method = (init.method ?? 'GET').toUpperCase()
   const body = (init.body ?? {}) as Record<string, string>
 
-  if (route === '/auth/signup' && method === 'POST') {
+  if (route === '/auth/signin' && method === 'POST') {
+    const user = allUsers.find((u) => u.email === body.email)
+    if (!user || user.password !== body.password) fail('UNAUTHORIZED', 'Invalid email or password')
+    return {
+      token: issueToken(user),
+      employee: {
+        id: user.id,
+        employeeId: user.employeeId,
+        email: user.email,
+        role: user.role,
+        name: user.name,
+        mustChangePassword: user.mustChangePassword,
+      },
+    } as T
+  }
+
+  if (route === '/admin/employees/invite' && method === 'POST') {
     if (allUsers.some((u) => u.employeeId === body.employeeId || u.email === body.email))
       fail('CONFLICT', 'An account with this email or employee ID already exists')
+    const tempPassword = 'TempPass123'
     const user: MockUser = {
       id: uid('emp', allUsers.length + 1),
       employeeId: body.employeeId,
       email: body.email,
-      role: 'EMPLOYEE',
+      role: (body as unknown as { role?: 'EMPLOYEE' | 'HR_ADMIN' }).role ?? 'EMPLOYEE',
       name: body.name,
       phone: null,
       address: null,
       photoUrl: null,
-      jobTitle: null,
-      department: null,
-      emailVerified: true, // mock: skip the real email hop
+      jobTitle: (body as unknown as { jobTitle?: string }).jobTitle ?? null,
+      department: (body as unknown as { department?: string }).department ?? null,
+      emailVerified: true,
+      mustChangePassword: true,
       createdAt: new Date().toISOString(),
-      password: body.password,
+      password: tempPassword,
     }
     allUsers.push(user)
     employees.push(user)
     attendance.set(user.id, seedAttendance(user.id, 30))
     payroll.set(user.id, [])
-    return { id: user.id, employeeId: user.employeeId, email: user.email } as T
+    return { employee: strip(user), tempPassword } as T
   }
 
-  if (route === '/auth/verify-email' && method === 'POST') {
-    return { id: 'mock' } as T
-  }
-
-  if (route === '/auth/signin' && method === 'POST') {
-    const user = allUsers.find((u) => u.email === body.email)
-    if (!user || user.password !== body.password) fail('UNAUTHORIZED', 'Invalid email or password')
-    if (!user.emailVerified) fail('UNAUTHORIZED', 'Please verify your email before signing in')
-    return {
-      token: issueToken(user),
-      employee: { id: user.id, employeeId: user.employeeId, email: user.email, role: user.role, name: user.name },
-    } as T
+  if (route === '/me/password' && method === 'PATCH') {
+    const user = self()
+    if (user.password !== body.currentPassword) fail('UNAUTHORIZED', 'Current password is incorrect')
+    user.password = body.newPassword
+    user.mustChangePassword = false
+    return { id: user.id } as T
   }
 
   const me = self()

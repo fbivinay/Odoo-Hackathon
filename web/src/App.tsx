@@ -6,9 +6,8 @@ import { ProtectedRoute } from '@/auth/ProtectedRoute'
 import { SessionProvider } from '@/auth/session'
 import { AppShell } from '@/components/AppShell'
 import { SignIn } from '@/pages/auth/SignIn'
+import { ChangePassword } from '@/pages/auth/ChangePassword'
 
-const SignUp = lazy(() => import('@/pages/auth/SignUp').then((m) => ({ default: m.SignUp })))
-const VerifyEmail = lazy(() => import('@/pages/auth/VerifyEmail').then((m) => ({ default: m.VerifyEmail })))
 const Dashboard = lazy(() => import('@/pages/Dashboard').then((m) => ({ default: m.Dashboard })))
 const Profile = lazy(() => import('@/pages/Profile').then((m) => ({ default: m.Profile })))
 const Attendance = lazy(() => import('@/pages/Attendance').then((m) => ({ default: m.Attendance })))
@@ -37,10 +36,9 @@ export default function App() {
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/sign-in" element={<SignIn />} />
-            <Route path="/sign-up" element={<SignUp />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
 
             <Route element={<ProtectedRoute />}>
+              <Route path="/change-password" element={<ChangePassword />} />
               <Route element={<AppShell />}>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/attendance" element={<Attendance />} />

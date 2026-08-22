@@ -18,6 +18,7 @@ export interface Employee {
   jobTitle: string | null
   department: string | null
   emailVerified: boolean
+  mustChangePassword: boolean
   createdAt: string
 }
 
@@ -70,5 +71,5 @@ export interface Payroll {
 
 export interface AuthResponse {
   token: string
-  employee: Pick<Employee, 'id' | 'employeeId' | 'email' | 'role' | 'name'>
+  employee: Pick<Employee, 'id' | 'employeeId' | 'email' | 'role' | 'name' | 'mustChangePassword'>
 }

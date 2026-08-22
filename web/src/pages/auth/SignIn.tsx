@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -73,12 +73,6 @@ export function SignIn() {
               {busy ? 'Signing in…' : 'Sign in'}
             </Button>
           </form>
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            No account?{' '}
-            <Link to="/sign-up" className="font-medium text-indigo-600 hover:underline">
-              Sign up
-            </Link>
-          </p>
         </CardContent>
       </Card>
     </div>
