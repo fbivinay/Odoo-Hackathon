@@ -2,6 +2,20 @@
 
 Human Resource Management System — Odoo Hackathon project.
 
+**Live:** https://dayflow-odoo-hackathon.vercel.app (one-click demo logins on the sign-in page; the live demo runs on built-in sample data)
+
+## Features
+
+- **Dashboards** — HR admins see headcount, attendance and leave by shift; employees see their own day at a glance
+- **Attendance** — check in and out, daily and weekly views, present / absent / half-day / leave status
+- **Leave** — employees apply with type, dates and remarks; HR approves or rejects with comments
+- **Payroll** — employees view their salary; HR manages every salary structure and downloads payslips as PDF
+- **Employees** — invite staff, assign shifts, deactivate accounts, keep profiles and documents
+- **Analytics & alerts** — attendance and leave trends, plus alerts for things HR should act on
+- **Roles** — HR admin and employee each see only what they should
+
+The original problem statement is in [`docs/`](docs/).
+
 ### 🔑 Demo Logins
 
 <table>
@@ -49,5 +63,6 @@ npm run dev            # http://localhost:5173
 ```
 dayflow-hrms/
 ├── backend/   # Express API, Prisma schema, migrations
+├── docs/      # Problem statement and team workflow notes
 └── web/       # React + Vite frontend
 ```
