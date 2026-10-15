@@ -1,6 +1,6 @@
 # Backend — Dayflow HRMS
 
-Node.js + Express + Prisma + PostgreSQL. Stack and API contract are documented in full in `../dayflow-workflow.md` — treat that file as the single source of truth for endpoint shapes.
+Node.js + Express + Prisma + PostgreSQL. Stack and API contract are documented in full in `../docs/dayflow-workflow.md` — treat that file as the single source of truth for endpoint shapes.
 
 ## Setup
 
