@@ -16,6 +16,12 @@ const FEATURES = [
   { icon: ShieldCheck, title: 'Access that matches your role' },
 ]
 
+// Public demo accounts, one per role, so visitors can try the app in one click.
+const DEMO_USERS = [
+  { label: 'HR Admin', email: 'admin@dayflow.dev', password: 'Password123' },
+  { label: 'Employee', email: 'aditya.verma@dayflow.dev', password: 'Password123' },
+]
+
 export function SignIn() {
   const { employee, loading, signIn } = useSession()
   const navigate = useNavigate()
@@ -28,10 +34,14 @@ export function SignIn() {
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault()
+    await login(email, password)
+  }
+
+  async function login(loginEmail: string, loginPassword: string) {
     setBusy(true)
     setError(null)
     try {
-      await signIn(email, password)
+      await signIn(loginEmail, loginPassword)
       navigate('/', { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Sign in failed.')
@@ -148,6 +158,23 @@ export function SignIn() {
                 {busy ? 'Signing in…' : 'Sign in'}
               </Button>
             </form>
+
+            <div className="space-y-3 border-t pt-6">
+              <p className="text-center text-xs font-medium text-muted-foreground">(Demo) Sign in as</p>
+              <div className="grid grid-cols-2 gap-2">
+                {DEMO_USERS.map((demo) => (
+                  <Button
+                    key={demo.email}
+                    type="button"
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => login(demo.email, demo.password)}
+                  >
+                    {demo.label}
+                  </Button>
+                ))}
+              </div>
+            </div>
           </div>
 
           <p className="text-center text-xs text-muted-foreground">
