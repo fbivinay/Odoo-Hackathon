@@ -4,7 +4,39 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dayflow</title>
+    <title>Dayflow — HR management</title>
+    <meta name="description" content="Dayflow is an HR management web app: attendance, leave, payroll and employee records, with separate views for HR admins and employees." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://dayflow-odoo-hackathon.vercel.app/" />
+    <meta property="og:title" content="Dayflow — HR management" />
+    <meta property="og:description" content="Attendance, leave, payroll and employee records in one place, with separate views for HR admins and employees." />
+    <meta property="og:image" content="https://dayflow-odoo-hackathon.vercel.app/og.png" />
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="756" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Dayflow — HR management" />
+    <meta name="twitter:description" content="Attendance, leave, payroll and employee records in one place, with separate views for HR admins and employees." />
+    <meta name="twitter:image" content="https://dayflow-odoo-hackathon.vercel.app/og.png" />
+    <!-- Desktop only: phones and tablets get a message instead of the site. -->
+    <style>
+      html[data-desktop-only]{display:flex!important;flex-direction:column;align-items:center;justify-content:center;height:100%;margin:0;padding:32px;box-sizing:border-box;overflow:hidden!important;background:#0f172a!important;color:#f1f5f9;font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;text-align:center}
+      html[data-desktop-only] body{display:none!important}
+      html[data-desktop-only]::before{content:"Please open this website on a laptop or desktop";max-width:340px;font-size:22px;font-weight:700;line-height:1.3}
+      html[data-desktop-only]::after{content:"It is built for larger screens and is not available on phones or tablets.";max-width:340px;margin-top:12px;font-size:15px;color:#94a3b8}
+    </style>
+    <script>
+      (function () {
+        try {
+          var n = navigator, ua = n.userAgent || '';
+          var mq = function (q) { return !!(window.matchMedia && matchMedia(q).matches); };
+          if ((n.userAgentData && n.userAgentData.mobile) ||
+              /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk|Kindle|PlayBook|BlackBerry|BB10|Opera Mini|IEMobile|webOS/i.test(ua) ||
+              (/Macintosh/.test(ua) && n.maxTouchPoints > 1) ||          // iPadOS asking for the desktop site
+              (mq('(pointer: coarse)') && !mq('(any-pointer: fine)')))   // touch-only screen with a desktop user agent
+            document.documentElement.setAttribute('data-desktop-only', '');
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

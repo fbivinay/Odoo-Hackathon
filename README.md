@@ -2,7 +2,9 @@
 
 Human Resource Management System — Odoo Hackathon project.
 
-**Live:** https://dayflow-odoo-hackathon.vercel.app (one-click demo logins on the sign-in page; the live demo runs on built-in sample data)
+**Live:** https://dayflow-odoo-hackathon.vercel.app (laptop or desktop only; one-click demo logins on the sign-in page; the live demo runs on built-in sample data)
+
+![The HR admin overview: headcount, attendance by shift and pending leave](docs/screenshot.png)
 
 ## Features
 
