@@ -32,7 +32,8 @@
           if ((n.userAgentData && n.userAgentData.mobile) ||
               /Android|iPhone|iPad|iPod|Mobile|Tablet|Silk|Kindle|PlayBook|BlackBerry|BB10|Opera Mini|IEMobile|webOS/i.test(ua) ||
               (/Macintosh/.test(ua) && n.maxTouchPoints > 1) ||          // iPadOS asking for the desktop site
-              (mq('(pointer: coarse)') && !mq('(any-pointer: fine)')))   // touch-only screen with a desktop user agent
+              (mq('(pointer: coarse)') && !mq('(any-pointer: fine)')) ||   // touch-only screen with a desktop user agent
+              (navigator.maxTouchPoints>0&&(Math.min(screen.width,screen.height)<600||(/Linux (arm|aarch)|Android/i.test(navigator.platform)&&!/CrOS/.test(navigator.userAgent)))))   // phone-sized or Android touch screen, even with a stylus or mouse
             document.documentElement.setAttribute('data-desktop-only', '');
         } catch (e) {}
       })();
